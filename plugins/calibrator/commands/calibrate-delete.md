@@ -67,7 +67,7 @@ SKILLS=$(sqlite3 -separator $'\t' "$DB_PATH" \
 ```
 
 ### Step 2-A: No Promoted Skills
-```
+```text
 📊 No promoted Skills found
 
 Nothing to delete. Promote patterns with /calibrate review first.
@@ -76,7 +76,7 @@ Nothing to delete. Promote patterns with /calibrate review first.
 ### Step 2-B: Skills Found
 
 Display the skills list with selection options:
-```
+```text
 🗑️ Delete Promoted Skills
 
 Select Skills to delete (pattern data will be preserved, only SKILL.md files will be removed):
@@ -121,7 +121,7 @@ IFS=$'\t' read -r SITUATION INSTRUCTION SKILL_PATH <<<"$ROW"
 ### Step 4: Confirmation
 
 Display selected skills and request confirmation:
-```
+```text
 ⚠️ Skills to Delete
 
 The following Skills will be deleted:
@@ -169,7 +169,8 @@ FAILED_COUNT=0
 
 # Process each skill
 for SKILL_ID in "${SKILL_IDS[@]}"; do
-  SKILL_ID=$(echo "$SKILL_ID" | xargs)  # trim whitespace
+  # Trim whitespace using bash built-in (safer than xargs which may execute commands)
+  SKILL_ID="${SKILL_ID//[[:space:]]/}"
 
   if ! [[ "$SKILL_ID" =~ ^[0-9]+$ ]]; then
     echo "⚠️ Skipping invalid id: $SKILL_ID"
@@ -228,7 +229,7 @@ done
 
 ### Step 6: Completion Message
 
-```
+```text
 ✅ Skill deletion complete
 
 - Deleted: {DELETED_COUNT} skill(s)

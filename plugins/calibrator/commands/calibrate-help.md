@@ -44,7 +44,7 @@ fi
 
 If `INITIALIZED=false`, display:
 
-```
+```text
 📚 Calibrator Help
 
 Status: ⚠️ Not initialized
@@ -81,7 +81,7 @@ PENDING=$(run_query "SELECT COUNT(*) FROM patterns WHERE count >= 2 AND promoted
 
 ### Step 3: Display Full Help
 
-```
+```text
 📚 Calibrator Help
 
 Status: ✅ Initialized | Patterns: {TOTAL_PATTERNS} | Skills: {PROMOTED} | Pending: {PENDING}

@@ -85,7 +85,7 @@ validate_skill_path() {
 ## Flow
 
 ### Step 1: Mode Selection
-```
+```text
 🔧 Calibrator Refactor
 
 What would you like to do?
@@ -115,7 +115,7 @@ fi
 ```
 
 Display skills:
-```
+```text
 📊 Promoted Skills
 
 [id=1] Creating React components → Always define TypeScript interface (3 times)
@@ -145,7 +145,7 @@ IFS=$'\t' read -r SITUATION INSTRUCTION COUNT SKILL_PATH FIRST_SEEN LAST_SEEN <<
 ```
 
 ### Step 1-3: Display Current Values and Edit
-```
+```text
 📝 Current Skill (id=$SKILL_ID)
 
 Situation: {situation}
@@ -162,7 +162,7 @@ Select option (1/2/3/4):
 ```
 
 For editing:
-```
+```text
 New situation (or press Enter to keep current):
 
 New instruction (or press Enter to keep current):
@@ -238,10 +238,14 @@ if [ -n "$SKILL_PATH" ] && [ -d "$SKILL_PATH" ]; then
       -e "s|{{FIRST_SEEN}}|$FIRST_SEEN|g" \
       -e "s|{{LAST_SEEN}}|$LAST_SEEN|g" \
       "$TEMPLATE_PATH" > "$TEMP_FILE"; then
-    mv "$TEMP_FILE" "$SKILL_PATH/SKILL.md"
+    # Atomic move with error handling
+    if ! mv "$TEMP_FILE" "$SKILL_PATH/SKILL.md" 2>/dev/null; then
+      rm -f "$TEMP_FILE"
+      echo "⚠️ Warning: Failed to write SKILL.md (mv failed)"
+    fi
   else
     rm -f "$TEMP_FILE"
-    echo "⚠️ Warning: Failed to regenerate SKILL.md"
+    echo "⚠️ Warning: Failed to regenerate SKILL.md (sed failed)"
   fi
 fi
 
@@ -270,7 +274,7 @@ fi
 ```
 
 Display situations with multiple patterns:
-```
+```text
 📊 Situations with Multiple Patterns
 
 Select a situation to view patterns:
@@ -286,7 +290,7 @@ PATTERNS=$(sqlite3 -separator $'\t' "$DB_PATH" \
 ```
 
 Display:
-```
+```text
 📝 Patterns for: {situation}
 
 [id=10] Always use async/await (2 times)
@@ -325,7 +329,8 @@ PRIMARY_INSTRUCTION=""
 EXPECTED_SITUATION=""
 
 for PID in "${PATTERN_IDS[@]}"; do
-  PID=$(echo "$PID" | xargs)  # trim whitespace
+  # Trim whitespace using bash built-in (safer than xargs which may execute commands)
+  PID="${PID//[[:space:]]/}"
 
   if ! [[ "$PID" =~ ^[0-9]+$ ]]; then
     echo "❌ Error: Invalid pattern id '$PID'"
@@ -374,12 +379,16 @@ done
 # Perform merge using transaction
 SAFE_INSTRUCTION=$(escape_sql "$PRIMARY_INSTRUCTION")
 
-# Pre-generate DELETE statements to avoid subshell execution in heredoc
-DELETE_STATEMENTS=""
+# Build comma-separated ID list for efficient single DELETE query
+DELETE_IDS=""
 for PID in "${PATTERN_IDS[@]}"; do
-  PID=$(echo "$PID" | xargs)
+  PID="${PID//[[:space:]]/}"
   if [ "$PID" != "$PRIMARY_ID" ]; then
-    DELETE_STATEMENTS="${DELETE_STATEMENTS}DELETE FROM patterns WHERE id = $PID;"$'\n'
+    if [ -n "$DELETE_IDS" ]; then
+      DELETE_IDS="$DELETE_IDS,$PID"
+    else
+      DELETE_IDS="$PID"
+    fi
   fi
 done
 
@@ -392,8 +401,9 @@ SET count = $TOTAL_COUNT,
     last_seen = CURRENT_TIMESTAMP
 WHERE id = $PRIMARY_ID;
 
--- Delete other patterns
-$DELETE_STATEMENTS
+-- Delete other patterns (single efficient query)
+DELETE FROM patterns WHERE id IN ($DELETE_IDS);
+
 COMMIT;
 SQL
 
@@ -435,7 +445,7 @@ fi
 ```
 
 Display duplicates:
-```
+```text
 ⚠️ Exact Duplicates Found
 
 This indicates a database integrity issue that should be fixed.
