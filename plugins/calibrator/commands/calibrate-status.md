@@ -19,27 +19,52 @@ LANG=${LANG:-en}  # 기본값: 영어
 ```
 
 ## 실행 전 확인
-- `.claude/calibrator/patterns.db` 존재 확인
-- 없으면 i18n 키 `calibrate.run_init_first` 안내
+
+### Step 0: 의존성 및 DB 확인
+```bash
+# 필수 의존성 체크
+if ! command -v sqlite3 &> /dev/null; then
+  echo "❌ Error: sqlite3 is required but not installed."
+  exit 1
+fi
+
+# DB 존재 확인
+if [ ! -f .claude/calibrator/patterns.db ]; then
+  # i18n 키 `calibrate.run_init_first` 안내
+  exit 1
+fi
+```
 
 ## 플로우
 
-### Step 1: 통계 쿼리 실행
+### Step 1: 통계 쿼리 실행 (에러 핸들링 포함)
 ```bash
+DB_PATH=".claude/calibrator/patterns.db"
+
+# 쿼리 실행 함수 (에러 핸들링)
+run_query() {
+  result=$(sqlite3 "$DB_PATH" "$1" 2>/dev/null)
+  if [ $? -ne 0 ]; then
+    echo "0"  # 에러 시 기본값 반환
+  else
+    echo "${result:-0}"
+  fi
+}
+
 # 총 관찰 기록 수
-TOTAL_OBS=$(sqlite3 .claude/calibrator/patterns.db "SELECT COUNT(*) FROM observations;")
+TOTAL_OBS=$(run_query "SELECT COUNT(*) FROM observations;")
 
 # 총 패턴 수
-TOTAL_PATTERNS=$(sqlite3 .claude/calibrator/patterns.db "SELECT COUNT(*) FROM patterns;")
+TOTAL_PATTERNS=$(run_query "SELECT COUNT(*) FROM patterns;")
 
 # Skill로 승격된 패턴 수
-PROMOTED=$(sqlite3 .claude/calibrator/patterns.db "SELECT COUNT(*) FROM patterns WHERE promoted = TRUE;")
+PROMOTED=$(run_query "SELECT COUNT(*) FROM patterns WHERE promoted = TRUE;")
 
 # 승격 대기중인 패턴 수 (2회 이상 반복)
-PENDING=$(sqlite3 .claude/calibrator/patterns.db "SELECT COUNT(*) FROM patterns WHERE count >= 2 AND promoted = FALSE;")
+PENDING=$(run_query "SELECT COUNT(*) FROM patterns WHERE count >= 2 AND promoted = FALSE;")
 
 # 최근 3개 관찰 기록
-RECENT=$(sqlite3 .claude/calibrator/patterns.db "SELECT timestamp, category, situation FROM observations ORDER BY timestamp DESC LIMIT 3;")
+RECENT=$(sqlite3 "$DB_PATH" "SELECT timestamp, category, situation FROM observations ORDER BY timestamp DESC LIMIT 3;" 2>/dev/null)
 ```
 
 ### Step 2: 출력 형식

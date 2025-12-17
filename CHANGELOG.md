@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release of Claude Code Calibrator plugin
 - `/calibrate init` command - Initialize SQLite database and directory structure
-- `/calibrate` command - Record expectation mismatches with category selection (누락/과잉/스타일/기타)
+- `/calibrate` command - Record expectation mismatches with category selection (missing/excess/style/other)
 - `/calibrate review` command - Review patterns and promote to Skills (2+ occurrences threshold)
 - `/calibrate status` command - View statistics and recent observations
 - `/calibrate reset` command - Reset all observation data (preserves generated Skills)

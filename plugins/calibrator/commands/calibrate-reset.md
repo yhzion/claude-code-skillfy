@@ -19,15 +19,30 @@ LANG=${LANG:-en}  # 기본값: 영어
 ```
 
 ## 실행 전 확인
-- `.claude/calibrator/patterns.db` 존재 확인
-- 없으면 i18n 키 `reset.no_data` 안내
+
+### Step 0: 의존성 및 DB 확인
+```bash
+# 필수 의존성 체크
+if ! command -v sqlite3 &> /dev/null; then
+  echo "❌ Error: sqlite3 is required but not installed."
+  exit 1
+fi
+
+# DB 존재 확인
+if [ ! -f .claude/calibrator/patterns.db ]; then
+  # i18n 키 `reset.no_data` 안내
+  exit 1
+fi
+```
 
 ## 플로우
 
-### Step 1: 현재 상태 표시
+### Step 1: 현재 상태 표시 (에러 핸들링 포함)
 ```bash
-TOTAL_OBS=$(sqlite3 .claude/calibrator/patterns.db "SELECT COUNT(*) FROM observations;")
-TOTAL_PATTERNS=$(sqlite3 .claude/calibrator/patterns.db "SELECT COUNT(*) FROM patterns;")
+DB_PATH=".claude/calibrator/patterns.db"
+
+TOTAL_OBS=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM observations;" 2>/dev/null || echo "0")
+TOTAL_PATTERNS=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM patterns;" 2>/dev/null || echo "0")
 ```
 
 ### Step 2: 확인 요청
@@ -56,13 +71,21 @@ Really reset? Type "reset" to confirm: _
 - "reset" 입력 시: 삭제 진행
 - 그 외: i18n 키 `reset.cancelled` 안내
 
-### Step 4: 데이터 삭제 실행
+### Step 4: 데이터 삭제 실행 (에러 핸들링 포함)
 ```bash
-# 기존 DB 삭제
-rm .claude/calibrator/patterns.db
+DB_PATH=".claude/calibrator/patterns.db"
 
-# 새 DB 생성 (schema.sql 파일 사용으로 중복 방지)
-sqlite3 .claude/calibrator/patterns.db < plugins/calibrator/schemas/schema.sql
+# 기존 DB 삭제
+if ! rm "$DB_PATH" 2>/dev/null; then
+  echo "❌ Error: Failed to delete database"
+  exit 1
+fi
+
+# 새 DB 생성 (에러 핸들링)
+if ! sqlite3 "$DB_PATH" < plugins/calibrator/schemas/schema.sql; then
+  echo "❌ Error: Failed to recreate database"
+  exit 1
+fi
 ```
 
 ### Step 5: 완료 메시지

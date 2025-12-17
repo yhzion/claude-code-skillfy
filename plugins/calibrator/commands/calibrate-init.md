@@ -13,12 +13,26 @@ Calibrator를 초기화합니다.
 언어 설정은 `.claude/calibrator/config.json`의 `language` 필드에 저장됩니다.
 
 지원 언어:
-- `en` - English (기본값)
-- `ko` - 한국어
-- `ja` - 日本語
-- `zh` - 中文
+- `en` - English (default)
+- `ko` - Korean (한국어)
+- `ja` - Japanese (日本語)
+- `zh` - Chinese (中文)
 
 ## 실행 플로우
+
+### Step 0: 의존성 확인
+```bash
+# 필수 의존성 체크
+check_dependency() {
+  if ! command -v "$1" &> /dev/null; then
+    echo "❌ Error: $1 is required but not installed."
+    exit 1
+  fi
+}
+
+check_dependency sqlite3
+check_dependency jq
+```
 
 ### Step 1: 기존 설치 확인
 ```bash
@@ -27,23 +41,37 @@ test -d .claude/calibrator
 
 ### Step 2-A: 신규 설치 - 언어 선택
 ```
-🌐 Select Language / 언어 선택
+🌐 Select Language
 
 Choose your preferred language for Calibrator:
 
 1. English (default)
-2. 한국어 (Korean)
-3. 日本語 (Japanese)
-4. 中文 (Chinese)
+2. Korean (한국어)
+3. Japanese (日本語)
+4. Chinese (中文)
 
 [1-4]: _
 ```
 
-언어 매핑:
-- 1 또는 빈 값 → `en`
-- 2 → `ko`
-- 3 → `ja`
-- 4 → `zh`
+언어 매핑 (입력값 검증 포함):
+```bash
+# 입력값 검증 및 매핑
+validate_language() {
+  case "$1" in
+    1|"") echo "en" ;;
+    2)    echo "ko" ;;
+    3)    echo "ja" ;;
+    4)    echo "zh" ;;
+    *)    echo "" ;;  # 잘못된 입력
+  esac
+}
+
+LANG_CODE=$(validate_language "$USER_INPUT")
+if [ -z "$LANG_CODE" ]; then
+  echo "❌ Invalid selection. Please enter 1-4."
+  # 다시 선택 화면으로
+fi
+```
 
 ### Step 2-B: 신규 설치 - 확인
 선택된 언어로 메시지를 표시합니다. (아래는 영어 예시)
@@ -59,21 +87,32 @@ Files to create:
 
 확인 시:
 ```bash
-mkdir -p .claude/calibrator
+# 디렉토리 생성 (에러 핸들링)
+if ! mkdir -p .claude/calibrator; then
+  echo "❌ Error: Failed to create .claude/calibrator directory"
+  exit 1
+fi
 mkdir -p .claude/skills/learned
 
-# schema.sql 파일로 DB 생성 (중복 방지)
-sqlite3 .claude/calibrator/patterns.db < plugins/calibrator/schemas/schema.sql
+# schema.sql 파일로 DB 생성 (에러 핸들링)
+if ! sqlite3 .claude/calibrator/patterns.db < plugins/calibrator/schemas/schema.sql; then
+  echo "❌ Error: Failed to create database"
+  exit 1
+fi
 
-# config.json 생성 (선택된 언어 포함)
-cat > .claude/calibrator/config.json << EOF
-{
-  "version": "1.0.0",
-  "language": "$LANG_CODE",
-  "threshold": 2,
-  "skill_output_path": ".claude/skills/learned"
-}
-EOF
+# config.json 생성 (jq 사용으로 안전한 JSON 생성)
+jq -n \
+  --arg version "1.0.0" \
+  --arg language "$LANG_CODE" \
+  --argjson threshold 2 \
+  --arg skill_output_path ".claude/skills/learned" \
+  '{version: $version, language: $language, threshold: $threshold, skill_output_path: $skill_output_path}' \
+  > .claude/calibrator/config.json
+
+if [ $? -ne 0 ]; then
+  echo "❌ Error: Failed to create config.json"
+  exit 1
+fi
 
 # .gitignore 업데이트 (Git 프로젝트인 경우)
 if [ -d .git ]; then

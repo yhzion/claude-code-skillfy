@@ -20,6 +20,15 @@ LANG=${LANG:-en}  # 기본값: 영어
 
 ## 실행 전 확인
 
+### Step 0: 의존성 확인
+```bash
+# 필수 의존성 체크
+if ! command -v sqlite3 &> /dev/null; then
+  echo "❌ Error: sqlite3 is required but not installed."
+  exit 1
+fi
+```
+
 1. `.claude/calibrator/patterns.db` 존재 여부 확인:
    ```bash
    test -f .claude/calibrator/patterns.db
@@ -74,23 +83,32 @@ Expected: [user input]
 
 ### Step 3: DB 기록
 
+**입력값 이스케이핑** (SQL Injection 방지):
+```bash
+# 싱글쿼트 이스케이핑: ' → ''
+SAFE_CATEGORY=$(printf '%s' "$CATEGORY" | sed "s/'/''/g")
+SAFE_SITUATION=$(printf '%s' "$SITUATION" | sed "s/'/''/g")
+SAFE_EXPECTATION=$(printf '%s' "$EXPECTATION" | sed "s/'/''/g")
+SAFE_INSTRUCTION=$(printf '%s' "$INSTRUCTION" | sed "s/'/''/g")
+```
+
 1. observations 테이블에 기록:
    ```bash
-   sqlite3 .claude/calibrator/patterns.db "INSERT INTO observations (category, situation, expectation) VALUES ('$CATEGORY', '$SITUATION', '$EXPECTATION');"
+   sqlite3 .claude/calibrator/patterns.db "INSERT INTO observations (category, situation, expectation) VALUES ('$SAFE_CATEGORY', '$SAFE_SITUATION', '$SAFE_EXPECTATION');"
    ```
 
 2. patterns 테이블에서 동일 situation 검색:
    ```bash
-   sqlite3 .claude/calibrator/patterns.db "SELECT id, count FROM patterns WHERE situation = '$SITUATION';"
+   sqlite3 .claude/calibrator/patterns.db "SELECT id, count FROM patterns WHERE situation = '$SAFE_SITUATION';"
    ```
 
    - 있으면: count +1, last_seen 업데이트
      ```bash
-     sqlite3 .claude/calibrator/patterns.db "UPDATE patterns SET count = count + 1, last_seen = CURRENT_TIMESTAMP WHERE situation = '$SITUATION';"
+     sqlite3 .claude/calibrator/patterns.db "UPDATE patterns SET count = count + 1, last_seen = CURRENT_TIMESTAMP WHERE situation = '$SAFE_SITUATION';"
      ```
    - 없으면: 새 패턴 생성, instruction은 기대를 DO 형태로 변환
      ```bash
-     sqlite3 .claude/calibrator/patterns.db "INSERT INTO patterns (situation, instruction) VALUES ('$SITUATION', '$INSTRUCTION');"
+     sqlite3 .claude/calibrator/patterns.db "INSERT INTO patterns (situation, instruction) VALUES ('$SAFE_SITUATION', '$SAFE_INSTRUCTION');"
      ```
 
    instruction 생성 규칙:
