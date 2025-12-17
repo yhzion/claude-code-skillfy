@@ -42,7 +42,8 @@ TOTAL_PATTERNS=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM patterns;" 2>/dev/null
 ```
 
 ### Step 3: Request Confirmation
-English example:
+
+Display the warning message:
 ```
 ⚠️ Calibrator Reset
 
@@ -53,14 +54,26 @@ Data to delete:
 - {TOTAL_OBS} observations
 - {TOTAL_PATTERNS} patterns
 
-Note: Generated Skills (.claude/skills/learned/) will be preserved.
-
-Really reset? Type "reset" to confirm: _
+Note: Generated Skills (.claude/skills/) will be preserved.
 ```
 
-### Step 4: User Input Validation
-- If "reset" is entered: Proceed with deletion
-- Otherwise: Print "Reset cancelled." and exit
+Then ask the user for confirmation:
+
+```
+⚠️ Are you sure you want to delete all Calibrator data?
+This action cannot be undone.
+
+1. Yes, reset all data - Delete all observations and patterns permanently
+2. Cancel - Keep all data and exit
+
+Confirm (1/2):
+```
+
+### Step 4: User Choice Handling
+
+Wait for user response:
+- User responds "1" or "yes" → Proceed to Step 5
+- User responds "2" or "cancel" → Print "Reset cancelled." and exit
 
 ### Step 5: Execute Data Deletion
 ```bash
@@ -85,7 +98,7 @@ English example:
 
 - Observations: all deleted
 - Patterns: all deleted
-- Skills: preserved (.claude/skills/learned/)
+- Skills: preserved (.claude/skills/)
 
 Start new records with /calibrate.
 ```

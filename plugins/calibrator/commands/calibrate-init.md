@@ -56,17 +56,33 @@ fi
 test -d "$PROJECT_ROOT/.claude/calibrator" || true
 ```
 
-### Step 2: New Installation - Confirmation
+### Step 2: New Installation - User Confirmation
+
+Ask the user for confirmation with a clear message:
+
 ```
 ⚙️ Calibrator Initialization
 
-Files to create:
-- .claude/calibrator/patterns.db
+This will create:
+- .claude/calibrator/patterns.db (SQLite database)
+- .claude/skills/ directory (for promoted skills)
 
-[Confirm] [Cancel]
+Options:
+1. Initialize with auto-detection (recommended)
+   → Automatically records patterns when fixing lint/type/build/test errors
+2. Initialize without auto-detection
+   → Only record patterns manually with /calibrate
+3. Cancel
+
+Which option? (1/2/3):
 ```
 
-On confirmation, execute Step 2-A, Step 2-B, and Step 2-C in order.
+Wait for user response:
+- User responds "1" or "yes" or confirms auto-detection → Set `AUTO_DETECT_ENABLED="yes"`
+- User responds "2" or "no" or declines auto-detection → Set `AUTO_DETECT_ENABLED="no"`
+- User responds "3" or "cancel" → Exit with message: "❌ Initialization cancelled."
+
+On confirmation (option 1 or 2), execute Step 2-A, Step 2-B, and Step 2-C in order.
 
 ### Step 2-A: Create Directories and Database
 ```bash
@@ -75,11 +91,11 @@ if ! mkdir -p "$PROJECT_ROOT/.claude/calibrator"; then
   echo "❌ Error: Failed to create .claude/calibrator directory"
   exit 1
 fi
-mkdir -p "$PROJECT_ROOT/.claude/skills/learned"
+mkdir -p "$PROJECT_ROOT/.claude/skills"
 
 # Set secure permissions
 chmod 700 "$PROJECT_ROOT/.claude/calibrator"        # Owner only: rwx
-chmod 700 "$PROJECT_ROOT/.claude/skills/learned"    # Owner only: rwx
+chmod 700 "$PROJECT_ROOT/.claude/skills"            # Owner only: rwx
 
 # Create DB from schema.sql (with error handling and cleanup on failure)
 if ! sqlite3 "$PROJECT_ROOT/.claude/calibrator/patterns.db" < "$PROJECT_ROOT/plugins/calibrator/schemas/schema.sql"; then
@@ -92,6 +108,21 @@ fi
 chmod 600 "$PROJECT_ROOT/.claude/calibrator/patterns.db"  # Owner only: rw
 ```
 
+**Then, based on user's choice in Step 2:**
+
+**If user selected Option 1 (auto-detection enabled):**
+```bash
+touch "$PROJECT_ROOT/.claude/calibrator/auto-detect.enabled"
+chmod 600 "$PROJECT_ROOT/.claude/calibrator/auto-detect.enabled"
+echo "📝 Auto pattern detection enabled"
+```
+
+**If user selected Option 2 (auto-detection disabled):**
+```bash
+rm -f "$PROJECT_ROOT/.claude/calibrator/auto-detect.enabled"
+echo "📝 Auto pattern detection disabled"
+```
+
 ### Step 2-B: Update .gitignore (REQUIRED for Git projects)
 
 **IMPORTANT:** This step MUST be executed for Git projects to prevent accidental commits of sensitive data.
@@ -102,7 +133,6 @@ if [ -d "$PROJECT_ROOT/.git" ]; then
   GITIGNORE_ENTRIES="
 # Calibrator runtime data (auto-added by /calibrate init)
 .claude/calibrator/
-.claude/skills/learned/
 .claude/calibrator/*.db-journal
 .claude/calibrator/*.db-wal
 .claude/calibrator/*.db-shm"
@@ -136,20 +166,29 @@ fi
 ```
 
 ### Step 3: When Already Exists
+
+If `.claude/calibrator` directory exists (from Step 1), display:
+
 ```
 ⚠️ Calibrator already exists
 
 Current files:
 - .claude/calibrator/patterns.db
 
-[Keep] [Reinitialize (delete data)]
+Options:
+1. Keep existing data - Exit without changes
+2. Reinitialize - Delete all data and start fresh
+
+Select option (1/2):
 ```
 
-- Keep selected: Exit
-- Reinitialize selected:
+Wait for user response:
+- User responds "1" or "keep" → Exit with message: "Keeping existing installation."
+- User responds "2" or "reinitialize" → Execute cleanup and proceed to Step 2:
 ```bash
 rm -rf "$PROJECT_ROOT/.claude/calibrator"
-# Proceed with new installation (starting from confirmation)
+echo "🗑️ Existing data removed"
+# Then proceed with new installation (Step 2)
 ```
 
 ### Step 4: Completion Message
@@ -158,8 +197,10 @@ English example:
 ✅ Calibrator initialization complete
 
 - .claude/calibrator/patterns.db created
-- .claude/skills/learned/ directory created
+- .claude/skills/ directory created
 - .gitignore updated (if Git project)
+- Auto pattern detection: {enabled|disabled}
 
 You can now record mismatches with /calibrate.
+{If auto-detection enabled: Patterns will also be recorded automatically when fixing lint/format/type/build/test errors.}
 ```

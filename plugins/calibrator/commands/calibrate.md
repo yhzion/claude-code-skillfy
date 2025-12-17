@@ -62,32 +62,58 @@ fi
 ## Recording Flow
 
 ### Step 2: Category Selection
-English example:
+
+Ask the user to select a category with a clear message:
+
 ```
+📝 Recording Pattern Mismatch
+
 What kind of mismatch just happened?
 
-1. Something was missing
-2. There was something unnecessary
-3. I wanted a different approach
-4. Let me explain
+1. Something was missing - Expected output was not included
+2. Something unnecessary - Output included unwanted content
+3. Different approach - Wanted a different style or method
+4. Other - Let me explain in detail
+
+Select category (1/2/3/4):
 ```
 
-Category mapping:
-- 1 → `missing`
-- 2 → `excess`
-- 3 → `style`
-- 4 → `other`
+Wait for user response and map to category:
+- User responds "1" → `CATEGORY="missing"`
+- User responds "2" → `CATEGORY="excess"`
+- User responds "3" → `CATEGORY="style"`
+- User responds "4" → `CATEGORY="other"`
 
 ### Step 3: Situation and Expectation Input
-English example:
-```
-In what situation, and what did you expect?
-Example: "When creating a model, include timestamp field"
 
-Situation: [user input]
-Expected: [user input]
-Instruction (imperative rule to learn): [user input]
+Ask the user three questions sequentially:
+
+**Question 1: Situation**
 ```
+In what situation did this happen?
+Example: "When creating a model", "When writing API endpoints"
+
+Situation:
+```
+Wait for user response → Save as `SITUATION`
+
+**Question 2: Expected**
+```
+What did you expect?
+Example: "Include timestamp field", "Use TypeScript interfaces"
+
+Expected:
+```
+Wait for user response → Save as `EXPECTATION`
+
+**Question 3: Instruction**
+```
+What rule should Claude learn? (imperative form)
+Example: "Always include timestamp fields", "Never use var in JavaScript"
+
+Instruction:
+```
+Wait for user response → Save as `INSTRUCTION`
 
 ### Step 4: Input Validation
 ```bash
