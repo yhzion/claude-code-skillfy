@@ -1,7 +1,7 @@
 ---
 name: calibrate status
 description: View Calibrator statistics
-allowed-tools: Bash(sqlite3:*), Bash(test:*), Bash(echo:*)
+allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(echo:*)
 ---
 
 # /calibrate status
@@ -14,6 +14,9 @@ View currently recorded patterns and statistics.
 ```bash
 set -euo pipefail
 IFS=$'\n\t'
+
+# Ensure UTF-8 locale for proper character handling
+export LC_ALL=C.UTF-8 2>/dev/null || export LC_ALL=en_US.UTF-8 2>/dev/null || true
 
 # Get project root (Git root or current directory as fallback)
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)

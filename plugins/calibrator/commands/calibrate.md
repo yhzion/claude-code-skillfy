@@ -1,7 +1,7 @@
 ---
 name: calibrate
 description: Record LLM expectation mismatches. Guide to initialize if not initialized.
-allowed-tools: Bash(sqlite3:*), Bash(test:*), Bash(sed:*), Bash(printf:*), Bash(echo:*)
+allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(sed:*), Bash(printf:*), Bash(echo:*)
 ---
 
 # /calibrate
@@ -19,13 +19,37 @@ This command is English-only (no locale/i18n).
 set -euo pipefail
 IFS=$'\n\t'
 
+# Ensure UTF-8 locale for proper character handling
+export LC_ALL=C.UTF-8 2>/dev/null || export LC_ALL=en_US.UTF-8 2>/dev/null || true
+
 # Get project root (Git root or current directory as fallback)
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 DB_PATH="$PROJECT_ROOT/.claude/calibrator/patterns.db"
 THRESHOLD=2
 
+# POSIX-compatible version comparison (returns 0 if $1 >= $2)
+version_ge() {
+  printf '%s\n%s' "$2" "$1" | awk -F. '
+    NR==1 { split($0,a,"."); next }
+    NR==2 { split($0,b,".")
+      for(i=1; i<=3; i++) {
+        if((b[i]+0) > (a[i]+0)) exit 0
+        if((b[i]+0) < (a[i]+0)) exit 1
+      }
+      exit 0
+    }'
+}
+
 if ! command -v sqlite3 &> /dev/null; then
   echo "❌ Error: sqlite3 is required but not installed."
+  exit 1
+fi
+
+# SQLite 3.24.0+ required for UPSERT support
+SQLITE_VERSION=$(sqlite3 --version 2>/dev/null | awk '{print $1}')
+MIN_SQLITE_VERSION="3.24.0"
+if ! version_ge "$SQLITE_VERSION" "$MIN_SQLITE_VERSION"; then
+  echo "❌ Error: SQLite $MIN_SQLITE_VERSION or higher required. Found: ${SQLITE_VERSION:-unknown}"
   exit 1
 fi
 
