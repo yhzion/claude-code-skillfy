@@ -21,6 +21,8 @@ Same pattern repeats 2+ times
 Claude suggests: "💡 Pattern repeated 2x → /calibrate review"
        ↓
 Promote to Skill with /calibrate review
+       ↓
+Claude automatically applies pattern going forward
 ```
 
 ### Manual Recording
