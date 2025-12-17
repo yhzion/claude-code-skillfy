@@ -1,7 +1,7 @@
 ---
 name: calibrate delete
 description: Delete promoted Skills (multi-select)
-allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(echo:*), Bash(rm:*), Bash(printf:*)
+allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(echo:*), Bash(rm:*), Bash(printf:*), Bash(realpath:*)
 ---
 
 # /calibrate delete
@@ -31,6 +31,29 @@ if [ ! -f "$DB_PATH" ]; then
   echo "❌ Calibrator is not initialized. Run /calibrate init first."
   exit 1
 fi
+
+# Skill output directory for path validation
+SKILL_OUTPUT_PATH="$PROJECT_ROOT/.claude/skills"
+
+# Path traversal protection: validate that a path is under allowed directory
+validate_skill_path() {
+  local path="$1"
+  local resolved_path resolved_base
+
+  # Resolve to absolute path and check it's under SKILL_OUTPUT_PATH
+  resolved_path=$(cd "$PROJECT_ROOT" && realpath -m "$path" 2>/dev/null || echo "")
+  resolved_base=$(realpath -m "$SKILL_OUTPUT_PATH" 2>/dev/null || echo "")
+
+  if [ -z "$resolved_path" ] || [ -z "$resolved_base" ]; then
+    return 1
+  fi
+
+  # Check path starts with base directory
+  case "$resolved_path" in
+    "$resolved_base"/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 ```
 
 ## Flow
@@ -162,10 +185,20 @@ for SKILL_ID in "${SKILL_IDS[@]}"; do
 
   IFS=$'\t' read -r SITUATION SKILL_PATH <<<"$ROW"
 
+  # Path traversal protection: ensure SKILL_PATH is under SKILL_OUTPUT_PATH
+  if [ -n "$SKILL_PATH" ] && ! validate_skill_path "$SKILL_PATH"; then
+    echo "⚠️ Skipping id=$SKILL_ID: Invalid skill path detected (potential path traversal)"
+    FAILED_COUNT=$((FAILED_COUNT + 1))
+    continue
+  fi
+
   # Delete SKILL.md file (preserve directory)
+  # If file deletion fails, skip DB update to maintain consistency
   if [ -n "$SKILL_PATH" ] && [ -f "$SKILL_PATH/SKILL.md" ]; then
     if ! rm "$SKILL_PATH/SKILL.md" 2>/dev/null; then
-      echo "⚠️ Warning: Failed to delete file: $SKILL_PATH/SKILL.md"
+      echo "⚠️ Skipping id=$SKILL_ID: Failed to delete file (DB not updated for consistency)"
+      FAILED_COUNT=$((FAILED_COUNT + 1))
+      continue
     fi
   fi
 

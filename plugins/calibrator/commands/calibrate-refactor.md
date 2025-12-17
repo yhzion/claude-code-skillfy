@@ -1,7 +1,7 @@
 ---
 name: calibrate refactor
 description: Edit existing Skills and merge similar patterns
-allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(sed:*), Bash(printf:*), Bash(echo:*), Bash(awk:*)
+allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(sed:*), Bash(printf:*), Bash(echo:*), Bash(awk:*), Bash(mktemp:*), Bash(basename:*), Bash(rm:*), Bash(mv:*), Bash(realpath:*)
 ---
 
 # /calibrate refactor
@@ -53,6 +53,33 @@ if [ ! -f "$DB_PATH" ]; then
   echo "❌ Calibrator is not initialized. Run /calibrate init first."
   exit 1
 fi
+
+# Template file path for skill regeneration
+TEMPLATE_PATH="$PROJECT_ROOT/plugins/calibrator/templates/skill-template.md"
+if [ ! -f "$TEMPLATE_PATH" ]; then
+  echo "❌ Error: Template file not found at $TEMPLATE_PATH"
+  exit 1
+fi
+
+# Path traversal protection: validate that a path is under allowed directory
+validate_skill_path() {
+  local path="$1"
+  local resolved_path resolved_base
+
+  # Resolve to absolute path and check it's under SKILL_OUTPUT_PATH
+  resolved_path=$(cd "$PROJECT_ROOT" && realpath -m "$path" 2>/dev/null || echo "")
+  resolved_base=$(realpath -m "$SKILL_OUTPUT_PATH" 2>/dev/null || echo "")
+
+  if [ -z "$resolved_path" ] || [ -z "$resolved_base" ]; then
+    return 1
+  fi
+
+  # Check path starts with base directory
+  case "$resolved_path" in
+    "$resolved_base"/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 ```
 
 ## Flow
@@ -175,46 +202,46 @@ fi
 # Update SKILL.md file using template-based regeneration
 # This approach is more robust than awk parsing as it doesn't depend on exact file structure
 if [ -n "$SKILL_PATH" ] && [ -d "$SKILL_PATH" ]; then
-  TEMPLATE_PATH="$PROJECT_ROOT/plugins/calibrator/templates/skill-template.md"
+  # Path traversal protection: ensure SKILL_PATH is under SKILL_OUTPUT_PATH
+  if ! validate_skill_path "$SKILL_PATH"; then
+    echo "❌ Error: Invalid skill path detected (potential path traversal)"
+    exit 1
+  fi
 
-  if [ ! -f "$TEMPLATE_PATH" ]; then
-    echo "⚠️ Warning: Template file not found, skipping SKILL.md update"
+  # Extract skill name from directory path
+  SKILL_NAME=$(basename "$SKILL_PATH")
+
+  # Escape variables for sed substitution (handles multi-line and special characters)
+  escape_sed() {
+    printf '%s' "$1" | awk '
+      BEGIN { ORS="" }
+      {
+        gsub(/\\/, "\\\\")
+        gsub(/&/, "\\\\&")
+        gsub(/\|/, "\\|")
+        if (NR > 1) printf "\\n"
+        print
+      }
+    '
+  }
+
+  SAFE_SKILL_NAME=$(escape_sed "$SKILL_NAME")
+  SAFE_SED_INSTRUCTION=$(escape_sed "$NEW_INSTRUCTION")
+  SAFE_SED_SITUATION=$(escape_sed "$NEW_SITUATION")
+
+  # Regenerate SKILL.md from template (atomic write via temp file)
+  TEMP_FILE=$(mktemp)
+  if sed -e "s|{{SKILL_NAME}}|$SAFE_SKILL_NAME|g" \
+      -e "s|{{INSTRUCTION}}|$SAFE_SED_INSTRUCTION|g" \
+      -e "s|{{SITUATION}}|$SAFE_SED_SITUATION|g" \
+      -e "s|{{COUNT}}|$COUNT|g" \
+      -e "s|{{FIRST_SEEN}}|$FIRST_SEEN|g" \
+      -e "s|{{LAST_SEEN}}|$LAST_SEEN|g" \
+      "$TEMPLATE_PATH" > "$TEMP_FILE"; then
+    mv "$TEMP_FILE" "$SKILL_PATH/SKILL.md"
   else
-    # Extract skill name from directory path
-    SKILL_NAME=$(basename "$SKILL_PATH")
-
-    # Escape variables for sed substitution (handles multi-line and special characters)
-    escape_sed() {
-      printf '%s' "$1" | awk '
-        BEGIN { ORS="" }
-        {
-          gsub(/\\/, "\\\\")
-          gsub(/&/, "\\\\&")
-          gsub(/\|/, "\\|")
-          if (NR > 1) printf "\\n"
-          print
-        }
-      '
-    }
-
-    SAFE_SKILL_NAME=$(escape_sed "$SKILL_NAME")
-    SAFE_SED_INSTRUCTION=$(escape_sed "$NEW_INSTRUCTION")
-    SAFE_SED_SITUATION=$(escape_sed "$NEW_SITUATION")
-
-    # Regenerate SKILL.md from template (atomic write via temp file)
-    TEMP_FILE=$(mktemp)
-    if sed -e "s|{{SKILL_NAME}}|$SAFE_SKILL_NAME|g" \
-        -e "s|{{INSTRUCTION}}|$SAFE_SED_INSTRUCTION|g" \
-        -e "s|{{SITUATION}}|$SAFE_SED_SITUATION|g" \
-        -e "s|{{COUNT}}|$COUNT|g" \
-        -e "s|{{FIRST_SEEN}}|$FIRST_SEEN|g" \
-        -e "s|{{LAST_SEEN}}|$LAST_SEEN|g" \
-        "$TEMPLATE_PATH" > "$TEMP_FILE"; then
-      mv "$TEMP_FILE" "$SKILL_PATH/SKILL.md"
-    else
-      rm -f "$TEMP_FILE"
-      echo "⚠️ Warning: Failed to regenerate SKILL.md"
-    fi
+    rm -f "$TEMP_FILE"
+    echo "⚠️ Warning: Failed to regenerate SKILL.md"
   fi
 fi
 
@@ -329,6 +356,15 @@ done
 # Perform merge using transaction
 SAFE_INSTRUCTION=$(escape_sql "$PRIMARY_INSTRUCTION")
 
+# Pre-generate DELETE statements to avoid subshell execution in heredoc
+DELETE_STATEMENTS=""
+for PID in "${PATTERN_IDS[@]}"; do
+  PID=$(echo "$PID" | xargs)
+  if [ "$PID" != "$PRIMARY_ID" ]; then
+    DELETE_STATEMENTS="${DELETE_STATEMENTS}DELETE FROM patterns WHERE id = $PID;"$'\n'
+  fi
+done
+
 sqlite3 "$DB_PATH" <<SQL
 BEGIN IMMEDIATE;
 
@@ -339,13 +375,7 @@ SET count = $TOTAL_COUNT,
 WHERE id = $PRIMARY_ID;
 
 -- Delete other patterns
-$(for PID in "${PATTERN_IDS[@]}"; do
-  PID=$(echo "$PID" | xargs)
-  if [ "$PID" != "$PRIMARY_ID" ]; then
-    echo "DELETE FROM patterns WHERE id = $PID;"
-  fi
-done)
-
+$DELETE_STATEMENTS
 COMMIT;
 SQL
 
