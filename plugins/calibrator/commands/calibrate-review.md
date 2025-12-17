@@ -115,25 +115,44 @@ On save selection:
 ```bash
 # Generate Skill name (kebab-case) - Path Traversal prevention
 SKILL_NAME=$(printf '%s' "$SITUATION" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g')
+# Collapse multiple consecutive hyphens and remove leading/trailing hyphens
+SKILL_NAME=$(printf '%s' "$SKILL_NAME" | sed 's/-\{2,\}/-/g; s/^-//; s/-$//')
 SKILL_NAME=$(printf '%s' "$SKILL_NAME" | cut -c1-50)
-if [ -z "$SKILL_NAME" ] || [ "$SKILL_NAME" = "-" ]; then
+# Remove any trailing hyphen that might result from truncation
+SKILL_NAME=$(printf '%s' "$SKILL_NAME" | sed 's/-$//')
+if [ -z "$SKILL_NAME" ]; then
   SKILL_NAME="skill-$(date +%Y%m%d-%H%M%S)"
 fi
 
-# Handle skill name collisions by appending a numeric suffix (max 100)
+# Handle skill name collisions atomically using mkdir (avoids TOCTOU race condition)
+# First ensure parent directory exists
+mkdir -p "$SKILL_OUTPUT_PATH"
+
 BASE_SKILL_NAME="$SKILL_NAME"
-SUFFIX=1
-while [ -d "$SKILL_OUTPUT_PATH/$SKILL_NAME" ] && [ $SUFFIX -le 100 ]; do
-  SKILL_NAME="${BASE_SKILL_NAME}-${SUFFIX}"
+SUFFIX=0
+MAX_ATTEMPTS=100
+SKILL_DIR=""
+
+while [ $SUFFIX -le $MAX_ATTEMPTS ]; do
+  if [ $SUFFIX -eq 0 ]; then
+    CURRENT_NAME="$BASE_SKILL_NAME"
+  else
+    CURRENT_NAME="${BASE_SKILL_NAME}-${SUFFIX}"
+  fi
+
+  # mkdir (without -p) fails if directory exists - atomic check+create
+  if mkdir "$SKILL_OUTPUT_PATH/$CURRENT_NAME" 2>/dev/null; then
+    SKILL_NAME="$CURRENT_NAME"
+    SKILL_DIR="$SKILL_OUTPUT_PATH/$SKILL_NAME"
+    break
+  fi
   SUFFIX=$((SUFFIX + 1))
 done
-if [ -d "$SKILL_OUTPUT_PATH/$SKILL_NAME" ]; then
-  echo "❌ Error: Failed to generate unique skill name"
+
+if [ -z "$SKILL_DIR" ]; then
+  echo "❌ Error: Failed to generate unique skill name after $MAX_ATTEMPTS attempts"
   exit 1
 fi
-
-# Create Skill directory
-mkdir -p "$SKILL_OUTPUT_PATH/$SKILL_NAME"
 
 # Escape variables for sed substitution (handles multi-line and special characters)
 escape_sed() {
@@ -141,7 +160,7 @@ escape_sed() {
     BEGIN { ORS="" }
     {
       gsub(/\\/, "\\\\")
-      gsub(/&/, "\\&")
+      gsub(/&/, "\\\\&")
       gsub(/\|/, "\\|")
       if (NR > 1) printf "\\n"
       print
