@@ -1,7 +1,7 @@
 ---
 name: calibrate review
 description: Review accumulated patterns and promote to Skills
-allowed-tools: Bash(sqlite3:*), Bash(test:*), Bash(mkdir:*), Bash(sed:*), Bash(printf:*), Bash(tr:*), Bash(cut:*), Bash(date:*), Bash(echo:*)
+allowed-tools: Bash(sqlite3:*), Bash(test:*), Bash(mkdir:*), Bash(sed:*), Bash(printf:*), Bash(tr:*), Bash(cut:*), Bash(date:*), Bash(echo:*), Bash(awk:*)
 ---
 
 # /calibrate review
@@ -135,9 +135,18 @@ fi
 # Create Skill directory
 mkdir -p "$SKILL_OUTPUT_PATH/$SKILL_NAME"
 
-# Escape variables for sed substitution (special characters: \, &, |)
+# Escape variables for sed substitution (handles multi-line and special characters)
 escape_sed() {
-  printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'
+  printf '%s' "$1" | awk '
+    BEGIN { ORS="" }
+    {
+      gsub(/\\/, "\\\\")
+      gsub(/&/, "\\&")
+      gsub(/\|/, "\\|")
+      if (NR > 1) printf "\\n"
+      print
+    }
+  '
 }
 SAFE_SKILL_NAME=$(escape_sed "$SKILL_NAME")
 SAFE_INSTRUCTION=$(escape_sed "$INSTRUCTION")
@@ -152,8 +161,11 @@ sed -e "s|{{SKILL_NAME}}|$SAFE_SKILL_NAME|g" \
     -e "s|{{LAST_SEEN}}|$LAST_SEEN|g" \
     plugins/calibrator/templates/skill-template.md > "$SKILL_OUTPUT_PATH/$SKILL_NAME/SKILL.md"
 
-# SQL Injection prevention: single quote escaping
-SAFE_SKILL_PATH=$(printf '%s' "$SKILL_OUTPUT_PATH/$SKILL_NAME" | sed "s/'/''/g")
+# SQL Injection prevention: escape single quotes
+escape_sql() {
+  printf '%s' "$1" | sed "s/'/''/g"
+}
+SAFE_SKILL_PATH=$(escape_sql "$SKILL_OUTPUT_PATH/$SKILL_NAME")
 sqlite3 "$DB_PATH" "UPDATE patterns SET promoted = 1, skill_path = '$SAFE_SKILL_PATH' WHERE id = $PATTERN_ID;"
 ```
 

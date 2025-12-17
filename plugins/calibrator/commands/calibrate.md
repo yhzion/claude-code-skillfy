@@ -92,11 +92,15 @@ fi
 
 **Input Escaping** (SQL Injection Prevention):
 ```bash
-# Single quote escaping: ' → ''
-SAFE_CATEGORY=$(printf '%s' "$CATEGORY" | sed "s/'/''/g")
-SAFE_SITUATION=$(printf '%s' "$SITUATION" | sed "s/'/''/g")
-SAFE_EXPECTATION=$(printf '%s' "$EXPECTATION" | sed "s/'/''/g")
-SAFE_INSTRUCTION=$(printf '%s' "$INSTRUCTION" | sed "s/'/''/g")
+# SQL Injection prevention: escape single quotes
+escape_sql() {
+  printf '%s' "$1" | sed "s/'/''/g"
+}
+
+SAFE_CATEGORY=$(escape_sql "$CATEGORY")
+SAFE_SITUATION=$(escape_sql "$SITUATION")
+SAFE_EXPECTATION=$(escape_sql "$EXPECTATION")
+SAFE_INSTRUCTION=$(escape_sql "$INSTRUCTION")
 ```
 
 Record to both tables using transaction (prevents race conditions):
