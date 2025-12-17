@@ -19,7 +19,9 @@ This command is English-only (no locale/i18n).
 set -euo pipefail
 IFS=$'\n\t'
 
-DB_PATH=".claude/calibrator/patterns.db"
+# Get project root (Git root or current directory as fallback)
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+DB_PATH="$PROJECT_ROOT/.claude/calibrator/patterns.db"
 THRESHOLD=2
 
 if ! command -v sqlite3 &> /dev/null; then

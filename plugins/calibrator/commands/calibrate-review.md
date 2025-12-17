@@ -15,9 +15,11 @@ Review repeated patterns and promote them to Skills.
 set -euo pipefail
 IFS=$'\n\t'
 
-DB_PATH=".claude/calibrator/patterns.db"
+# Get project root (Git root or current directory as fallback)
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+DB_PATH="$PROJECT_ROOT/.claude/calibrator/patterns.db"
 THRESHOLD=2
-SKILL_OUTPUT_PATH=".claude/skills/learned"
+SKILL_OUTPUT_PATH="$PROJECT_ROOT/.claude/skills/learned"
 
 if ! command -v sqlite3 &> /dev/null; then
   echo "❌ Error: sqlite3 is required but not installed."

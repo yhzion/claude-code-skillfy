@@ -16,6 +16,9 @@ Initialize the Calibrator system.
 set -euo pipefail
 IFS=$'\n\t'
 
+# Get project root (Git root or current directory as fallback)
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+
 # Check required dependencies
 if ! command -v sqlite3 &> /dev/null; then
   echo "❌ Error: sqlite3 is required but not installed."
@@ -34,7 +37,7 @@ fi
 
 ### Step 1: Check Existing Installation
 ```bash
-test -d .claude/calibrator
+test -d "$PROJECT_ROOT/.claude/calibrator"
 ```
 
 ### Step 2: New Installation - Confirmation
@@ -50,28 +53,28 @@ Files to create:
 On confirmation:
 ```bash
 # Create directories (with error handling)
-if ! mkdir -p .claude/calibrator; then
+if ! mkdir -p "$PROJECT_ROOT/.claude/calibrator"; then
   echo "❌ Error: Failed to create .claude/calibrator directory"
   exit 1
 fi
-mkdir -p .claude/skills/learned
+mkdir -p "$PROJECT_ROOT/.claude/skills/learned"
 
 # Set secure permissions
-chmod 700 .claude/calibrator        # Owner only: rwx
-chmod 700 .claude/skills/learned    # Owner only: rwx
+chmod 700 "$PROJECT_ROOT/.claude/calibrator"        # Owner only: rwx
+chmod 700 "$PROJECT_ROOT/.claude/skills/learned"    # Owner only: rwx
 
 # Create DB from schema.sql (with error handling and cleanup on failure)
-if ! sqlite3 .claude/calibrator/patterns.db < plugins/calibrator/schemas/schema.sql; then
-  rm -f .claude/calibrator/patterns.db
+if ! sqlite3 "$PROJECT_ROOT/.claude/calibrator/patterns.db" < plugins/calibrator/schemas/schema.sql; then
+  rm -f "$PROJECT_ROOT/.claude/calibrator/patterns.db"
   echo "❌ Error: Failed to create database"
   exit 1
 fi
 
 # Set secure permissions on DB file
-chmod 600 .claude/calibrator/patterns.db  # Owner only: rw
+chmod 600 "$PROJECT_ROOT/.claude/calibrator/patterns.db"  # Owner only: rw
 
 # Update .gitignore (for Git projects)
-if [ -d .git ]; then
+if [ -d "$PROJECT_ROOT/.git" ]; then
   GITIGNORE_ENTRIES="
 # Calibrator runtime data (auto-added by /calibrate init)
 .claude/calibrator/
@@ -80,15 +83,15 @@ if [ -d .git ]; then
 .claude/calibrator/*.db-wal
 .claude/calibrator/*.db-shm"
 
-  if [ -f .gitignore ]; then
+  if [ -f "$PROJECT_ROOT/.gitignore" ]; then
     # Check if calibrator entries already exist
-    if ! grep -q ".claude/calibrator/" .gitignore; then
-      echo "$GITIGNORE_ENTRIES" >> .gitignore
+    if ! grep -q ".claude/calibrator/" "$PROJECT_ROOT/.gitignore"; then
+      echo "$GITIGNORE_ENTRIES" >> "$PROJECT_ROOT/.gitignore"
       echo "📝 Calibrator entries added to .gitignore"
     fi
   else
     # Create .gitignore file
-    echo "$GITIGNORE_ENTRIES" > .gitignore
+    echo "$GITIGNORE_ENTRIES" > "$PROJECT_ROOT/.gitignore"
     echo "📝 .gitignore file created"
   fi
 fi
@@ -107,7 +110,7 @@ Current files:
 - Keep selected: Exit
 - Reinitialize selected:
 ```bash
-rm -rf .claude/calibrator
+rm -rf "$PROJECT_ROOT/.claude/calibrator"
 # Proceed with new installation (starting from confirmation)
 ```
 

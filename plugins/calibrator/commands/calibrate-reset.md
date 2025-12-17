@@ -1,7 +1,7 @@
 ---
 name: calibrate reset
 description: Reset Calibrator data (dangerous)
-allowed-tools: Bash(sqlite3:*), Bash(test:*), Bash(rm:*), Bash(chmod:*), Bash(echo:*)
+allowed-tools: Bash(sqlite3:*), Bash(test:*), Bash(echo:*)
 ---
 
 # /calibrate reset
@@ -15,7 +15,9 @@ allowed-tools: Bash(sqlite3:*), Bash(test:*), Bash(rm:*), Bash(chmod:*), Bash(ec
 set -euo pipefail
 IFS=$'\n\t'
 
-DB_PATH=".claude/calibrator/patterns.db"
+# Get project root (Git root or current directory as fallback)
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+DB_PATH="$PROJECT_ROOT/.claude/calibrator/patterns.db"
 
 if ! command -v sqlite3 &> /dev/null; then
   echo "❌ Error: sqlite3 is required but not installed."
@@ -59,20 +61,18 @@ Really reset? Type "reset" to confirm: _
 
 ### Step 5: Execute Data Deletion
 ```bash
-# Delete existing DB
-if ! rm "$DB_PATH" 2>/dev/null; then
-  echo "❌ Error: Failed to delete database"
+# Clear data using transaction (safer than rm + recreate)
+# Transaction ensures atomicity: on failure, data is preserved via rollback
+if ! sqlite3 "$DB_PATH" <<SQL
+BEGIN IMMEDIATE;
+DELETE FROM observations;
+DELETE FROM patterns;
+COMMIT;
+SQL
+then
+  echo "❌ Error: Failed to reset database"
   exit 1
 fi
-
-# Create new DB using schema
-if ! sqlite3 "$DB_PATH" < plugins/calibrator/schemas/schema.sql; then
-  echo "❌ Error: Failed to recreate database"
-  exit 1
-fi
-
-# Restore secure permissions
-chmod 600 "$DB_PATH"
 ```
 
 ### Step 6: Completion Message
