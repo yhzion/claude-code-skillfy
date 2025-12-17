@@ -106,7 +106,7 @@ if ! [[ "$SKILL_ID" =~ ^[0-9]+$ ]]; then
 fi
 
 ROW=$(sqlite3 -separator $'\t' "$DB_PATH" \
-  "SELECT situation, instruction, count, skill_path FROM patterns WHERE id = $SKILL_ID AND promoted = 1;" \
+  "SELECT situation, instruction, count, skill_path, first_seen, last_seen FROM patterns WHERE id = $SKILL_ID AND promoted = 1;" \
   2>/dev/null) || ROW=""
 
 if [ -z "$ROW" ]; then
@@ -114,7 +114,7 @@ if [ -z "$ROW" ]; then
   exit 1
 fi
 
-IFS=$'\t' read -r SITUATION INSTRUCTION COUNT SKILL_PATH <<<"$ROW"
+IFS=$'\t' read -r SITUATION INSTRUCTION COUNT SKILL_PATH FIRST_SEEN LAST_SEEN <<<"$ROW"
 ```
 
 ### Step 1-3: Display Current Values and Edit
@@ -172,59 +172,50 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# Update SKILL.md file if skill_path exists
-if [ -n "$SKILL_PATH" ] && [ -f "$SKILL_PATH/SKILL.md" ]; then
-  # Escape variables for sed substitution
-  escape_sed() {
-    printf '%s' "$1" | awk '
-      BEGIN { ORS="" }
-      {
-        gsub(/\\/, "\\\\")
-        gsub(/&/, "\\\\&")
-        gsub(/\|/, "\\|")
-        if (NR > 1) printf "\\n"
-        print
-      }
-    '
-  }
+# Update SKILL.md file using template-based regeneration
+# This approach is more robust than awk parsing as it doesn't depend on exact file structure
+if [ -n "$SKILL_PATH" ] && [ -d "$SKILL_PATH" ]; then
+  TEMPLATE_PATH="$PROJECT_ROOT/plugins/calibrator/templates/skill-template.md"
 
-  SAFE_SED_SITUATION=$(escape_sed "$NEW_SITUATION")
-  SAFE_SED_INSTRUCTION=$(escape_sed "$NEW_INSTRUCTION")
+  if [ ! -f "$TEMPLATE_PATH" ]; then
+    echo "⚠️ Warning: Template file not found, skipping SKILL.md update"
+  else
+    # Extract skill name from directory path
+    SKILL_NAME=$(basename "$SKILL_PATH")
 
-  # Update SKILL.md - replace instruction and situation in frontmatter and body
-  TEMP_FILE=$(mktemp)
-  awk -v new_instruction="$NEW_INSTRUCTION" -v new_situation="$NEW_SITUATION" '
-    BEGIN { in_frontmatter=0; after_frontmatter=0 }
-    /^---$/ {
-      if (in_frontmatter) {
-        after_frontmatter=1
-      }
-      in_frontmatter=!in_frontmatter;
-      print;
-      next
+    # Escape variables for sed substitution (handles multi-line and special characters)
+    escape_sed() {
+      printf '%s' "$1" | awk '
+        BEGIN { ORS="" }
+        {
+          gsub(/\\/, "\\\\")
+          gsub(/&/, "\\\\&")
+          gsub(/\|/, "\\|")
+          if (NR > 1) printf "\\n"
+          print
+        }
+      '
     }
-    in_frontmatter && /^description:/ {
-      print "description: " new_instruction ". Auto-applied in " new_situation " situations."
-      next
-    }
-    after_frontmatter && /^## Rules$/ {
-      print
-      getline
-      if ($0 == "") print ""
-      print new_instruction
-      next
-    }
-    after_frontmatter && /^## Applies to$/ {
-      print
-      getline
-      if ($0 == "") print ""
-      print "- " new_situation
-      next
-    }
-    { print }
-  ' "$SKILL_PATH/SKILL.md" > "$TEMP_FILE"
 
-  mv "$TEMP_FILE" "$SKILL_PATH/SKILL.md"
+    SAFE_SKILL_NAME=$(escape_sed "$SKILL_NAME")
+    SAFE_SED_INSTRUCTION=$(escape_sed "$NEW_INSTRUCTION")
+    SAFE_SED_SITUATION=$(escape_sed "$NEW_SITUATION")
+
+    # Regenerate SKILL.md from template (atomic write via temp file)
+    TEMP_FILE=$(mktemp)
+    if sed -e "s|{{SKILL_NAME}}|$SAFE_SKILL_NAME|g" \
+        -e "s|{{INSTRUCTION}}|$SAFE_SED_INSTRUCTION|g" \
+        -e "s|{{SITUATION}}|$SAFE_SED_SITUATION|g" \
+        -e "s|{{COUNT}}|$COUNT|g" \
+        -e "s|{{FIRST_SEEN}}|$FIRST_SEEN|g" \
+        -e "s|{{LAST_SEEN}}|$LAST_SEEN|g" \
+        "$TEMPLATE_PATH" > "$TEMP_FILE"; then
+      mv "$TEMP_FILE" "$SKILL_PATH/SKILL.md"
+    else
+      rm -f "$TEMP_FILE"
+      echo "⚠️ Warning: Failed to regenerate SKILL.md"
+    fi
+  fi
 fi
 
 printf '\n✅ Skill updated (id=%d)\n\n' "$SKILL_ID"
@@ -284,6 +275,19 @@ Keep which instruction as primary? Enter pattern id:
 ```bash
 # Validate all pattern ids
 IFS=',' read -ra PATTERN_IDS <<< "$MERGE_IDS"
+
+# Validate array length (minimum 2 patterns required for merge)
+if [ ${#PATTERN_IDS[@]} -lt 2 ]; then
+  echo "❌ Error: At least 2 patterns are required for merge"
+  exit 1
+fi
+
+# Limit maximum patterns to prevent excessive operations
+if [ ${#PATTERN_IDS[@]} -gt 50 ]; then
+  echo "❌ Error: Maximum 50 patterns can be merged at once"
+  exit 1
+fi
+
 TOTAL_COUNT=0
 PRIMARY_INSTRUCTION=""
 
