@@ -22,6 +22,10 @@ Supported languages:
 
 ### Step 0: Dependency Check
 ```bash
+# Bash strict mode for safer script execution
+set -euo pipefail
+IFS=$'\n\t'
+
 # Check required dependencies
 check_dependency() {
   if ! command -v "$1" &> /dev/null; then
@@ -129,12 +133,19 @@ if ! mkdir -p .claude/calibrator; then
 fi
 mkdir -p .claude/skills/learned
 
+# Set secure permissions
+chmod 700 .claude/calibrator        # Owner only: rwx
+chmod 700 .claude/skills/learned    # Owner only: rwx
+
 # Create DB from schema.sql (with error handling and cleanup on failure)
 if ! sqlite3 .claude/calibrator/patterns.db < plugins/calibrator/schemas/schema.sql; then
   rm -f .claude/calibrator/patterns.db
   echo "❌ Error: Failed to create database"
   exit 1
 fi
+
+# Set secure permissions on DB file
+chmod 600 .claude/calibrator/patterns.db  # Owner only: rw
 
 # Create config.json (safe JSON generation using jq)
 # Includes db_path for configurable database location
@@ -152,6 +163,9 @@ if [ $? -ne 0 ]; then
   echo "❌ Error: Failed to create config.json"
   exit 1
 fi
+
+# Set secure permissions on config file
+chmod 600 .claude/calibrator/config.json  # Owner only: rw
 
 # Update .gitignore (for Git projects)
 if [ -d .git ]; then

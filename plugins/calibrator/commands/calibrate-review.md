@@ -13,17 +13,52 @@ All user-facing messages reference `plugins/calibrator/i18n/messages.json`.
 At runtime, reads the `language` field from `.claude/calibrator/config.json` to use appropriate language messages.
 
 ```bash
-# Stable JSON parsing using jq
-LANG=$(jq -r '.language // "en"' .claude/calibrator/config.json 2>/dev/null)
-LANG=${LANG:-en}  # Default: English
+# Bash strict mode for safer script execution
+set -euo pipefail
+IFS=$'\n\t'
 
-# Read threshold from config (default: 2)
-THRESHOLD=$(jq -r '.threshold // 2' .claude/calibrator/config.json 2>/dev/null)
-THRESHOLD=${THRESHOLD:-2}
+# Config file path
+CONFIG_FILE=".claude/calibrator/config.json"
 
-# Read database path from config (default: .claude/calibrator/patterns.db)
-DB_PATH=$(jq -r '.db_path // ".claude/calibrator/patterns.db"' .claude/calibrator/config.json 2>/dev/null)
-DB_PATH=${DB_PATH:-.claude/calibrator/patterns.db}
+# Config validation and reading with explicit error handling
+read_config() {
+  if [ ! -f "$CONFIG_FILE" ]; then
+    echo "⚠️ Warning: config.json not found. Using defaults." >&2
+    return 1
+  fi
+
+  # Validate JSON syntax
+  if ! jq empty "$CONFIG_FILE" 2>/dev/null; then
+    echo "⚠️ Warning: config.json is invalid JSON. Using defaults." >&2
+    return 1
+  fi
+
+  return 0
+}
+
+# Read config with validation
+if read_config; then
+  LANG=$(jq -r '.language // "en"' "$CONFIG_FILE")
+  # Validate language value
+  case "$LANG" in
+    en|ko|ja|zh) ;;
+    *) echo "⚠️ Warning: Invalid language '$LANG'. Using 'en'." >&2; LANG="en" ;;
+  esac
+
+  # Read and validate threshold (must be positive integer)
+  THRESHOLD=$(jq -r '.threshold // 2' "$CONFIG_FILE")
+  if ! [[ "$THRESHOLD" =~ ^[1-9][0-9]*$ ]]; then
+    echo "⚠️ Warning: Invalid threshold '$THRESHOLD'. Using '2'." >&2
+    THRESHOLD=2
+  fi
+
+  # Read database path
+  DB_PATH=$(jq -r '.db_path // ".claude/calibrator/patterns.db"' "$CONFIG_FILE")
+else
+  LANG="en"
+  THRESHOLD=2
+  DB_PATH=".claude/calibrator/patterns.db"
+fi
 ```
 
 ## Pre-execution Check
@@ -134,13 +169,19 @@ if [ -z "$SKILL_NAME" ] || [ "$SKILL_NAME" = "-" ]; then
   SKILL_NAME="skill-$(date +%Y%m%d-%H%M%S)"
 fi
 
-# Handle skill name collisions by appending suffix
+# Handle skill name collisions by appending suffix (with max retries)
 BASE_SKILL_NAME="$SKILL_NAME"
 SUFFIX=1
-while [ -d ".claude/skills/learned/$SKILL_NAME" ]; do
+MAX_RETRIES=100
+while [ -d ".claude/skills/learned/$SKILL_NAME" ] && [ $SUFFIX -le $MAX_RETRIES ]; do
   SKILL_NAME="${BASE_SKILL_NAME}-${SUFFIX}"
   SUFFIX=$((SUFFIX + 1))
 done
+
+if [ $SUFFIX -gt $MAX_RETRIES ]; then
+  echo "❌ Error: Failed to generate unique skill name after $MAX_RETRIES attempts"
+  exit 1
+fi
 
 # Create Skill directory
 mkdir -p ".claude/skills/learned/$SKILL_NAME"

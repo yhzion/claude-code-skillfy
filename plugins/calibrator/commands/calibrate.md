@@ -13,9 +13,40 @@ All user-facing messages reference `plugins/calibrator/i18n/messages.json`.
 At runtime, reads the `language` field from `.claude/calibrator/config.json` to use appropriate language messages.
 
 ```bash
-# Stable JSON parsing using jq
-LANG=$(jq -r '.language // "en"' .claude/calibrator/config.json 2>/dev/null)
-LANG=${LANG:-en}  # Default: English
+# Bash strict mode for safer script execution
+set -euo pipefail
+IFS=$'\n\t'
+
+# Config file path
+CONFIG_FILE=".claude/calibrator/config.json"
+
+# Config validation and reading with explicit error handling
+read_config() {
+  if [ ! -f "$CONFIG_FILE" ]; then
+    echo "⚠️ Warning: config.json not found. Using defaults." >&2
+    return 1
+  fi
+
+  # Validate JSON syntax
+  if ! jq empty "$CONFIG_FILE" 2>/dev/null; then
+    echo "⚠️ Warning: config.json is invalid JSON. Using defaults." >&2
+    return 1
+  fi
+
+  return 0
+}
+
+# Read config with validation
+if read_config; then
+  LANG=$(jq -r '.language // "en"' "$CONFIG_FILE")
+  # Validate language value
+  case "$LANG" in
+    en|ko|ja|zh) ;;
+    *) echo "⚠️ Warning: Invalid language '$LANG'. Using 'en'." >&2; LANG="en" ;;
+  esac
+else
+  LANG="en"
+fi
 ```
 
 ## Pre-execution Check
@@ -31,9 +62,12 @@ fi
 
 1. Check if `.claude/calibrator/patterns.db` exists:
    ```bash
-   # Read database path from config
-   DB_PATH=$(jq -r '.db_path // ".claude/calibrator/patterns.db"' .claude/calibrator/config.json 2>/dev/null)
-   DB_PATH=${DB_PATH:-.claude/calibrator/patterns.db}
+   # Read database path from config (uses read_config from above)
+   if read_config; then
+     DB_PATH=$(jq -r '.db_path // ".claude/calibrator/patterns.db"' "$CONFIG_FILE")
+   else
+     DB_PATH=".claude/calibrator/patterns.db"
+   fi
 
    test -f "$DB_PATH"
    ```
@@ -96,27 +130,38 @@ SAFE_EXPECTATION=$(printf '%s' "$EXPECTATION" | sed "s/'/''/g")
 SAFE_INSTRUCTION=$(printf '%s' "$INSTRUCTION" | sed "s/'/''/g")
 ```
 
-1. Record to observations table:
+1. Record to both tables using transaction (prevents race conditions):
    ```bash
-   sqlite3 "$DB_PATH" "INSERT INTO observations (category, situation, expectation) VALUES ('$SAFE_CATEGORY', '$SAFE_SITUATION', '$SAFE_EXPECTATION');"
-   ```
+   # Use BEGIN IMMEDIATE for write lock, ensuring atomic operation
+   sqlite3 "$DB_PATH" <<SQL
+   BEGIN IMMEDIATE;
 
-2. Update patterns table using UPSERT (atomic operation to prevent race conditions):
-   ```bash
-   # Use INSERT ... ON CONFLICT for atomic upsert operation
-   sqlite3 "$DB_PATH" "INSERT INTO patterns (situation, instruction, count)
-     VALUES ('$SAFE_SITUATION', '$SAFE_INSTRUCTION', 1)
-     ON CONFLICT(situation)
-     DO UPDATE SET count = count + 1, last_seen = CURRENT_TIMESTAMP;"
+   -- Record observation
+   INSERT INTO observations (category, situation, expectation)
+   VALUES ('$SAFE_CATEGORY', '$SAFE_SITUATION', '$SAFE_EXPECTATION');
+
+   -- Upsert pattern (composite unique: situation + instruction)
+   INSERT INTO patterns (situation, instruction, count)
+   VALUES ('$SAFE_SITUATION', '$SAFE_INSTRUCTION', 1)
+   ON CONFLICT(situation, instruction)
+   DO UPDATE SET count = count + 1, last_seen = CURRENT_TIMESTAMP;
+
+   COMMIT;
+   SQL
+
+   if [ $? -ne 0 ]; then
+     echo "❌ Error: Failed to record pattern"
+     exit 1
+   fi
    ```
 
    Instruction generation rules:
    - Convert expectation to imperative form
    - Example: "include timestamp field" → "Always include timestamp field"
 
-3. Get current pattern count:
+2. Get current pattern count:
    ```bash
-   COUNT=$(sqlite3 "$DB_PATH" "SELECT count FROM patterns WHERE situation = '$SAFE_SITUATION';")
+   COUNT=$(sqlite3 "$DB_PATH" "SELECT count FROM patterns WHERE situation = '$SAFE_SITUATION' AND instruction = '$SAFE_INSTRUCTION';")
    ```
 
 ### Step 4: Output Result

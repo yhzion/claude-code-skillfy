@@ -12,13 +12,14 @@ CREATE TABLE IF NOT EXISTS observations (
 
 CREATE TABLE IF NOT EXISTS patterns (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  situation   TEXT UNIQUE NOT NULL,  -- UNIQUE constraint enables UPSERT
+  situation   TEXT NOT NULL,
   instruction TEXT NOT NULL,     -- Imperative form instruction
   count       INTEGER DEFAULT 1,
   first_seen  DATETIME DEFAULT CURRENT_TIMESTAMP,
   last_seen   DATETIME DEFAULT CURRENT_TIMESTAMP,
   promoted    BOOLEAN DEFAULT FALSE,
-  skill_path  TEXT               -- Path to promoted Skill
+  skill_path  TEXT,              -- Path to promoted Skill
+  UNIQUE(situation, instruction) -- Composite unique: allows different instructions for same situation
 );
 
 -- Performance indexes

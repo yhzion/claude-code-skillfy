@@ -13,13 +13,44 @@ All user-facing messages reference `plugins/calibrator/i18n/messages.json`.
 At runtime, reads the `language` field from `.claude/calibrator/config.json` to use appropriate language messages.
 
 ```bash
-# Stable JSON parsing using jq
-LANG=$(jq -r '.language // "en"' .claude/calibrator/config.json 2>/dev/null)
-LANG=${LANG:-en}  # Default: English
+# Bash strict mode for safer script execution
+set -euo pipefail
+IFS=$'\n\t'
 
-# Read database path from config
-DB_PATH=$(jq -r '.db_path // ".claude/calibrator/patterns.db"' .claude/calibrator/config.json 2>/dev/null)
-DB_PATH=${DB_PATH:-.claude/calibrator/patterns.db}
+# Config file path
+CONFIG_FILE=".claude/calibrator/config.json"
+
+# Config validation and reading with explicit error handling
+read_config() {
+  if [ ! -f "$CONFIG_FILE" ]; then
+    echo "⚠️ Warning: config.json not found. Using defaults." >&2
+    return 1
+  fi
+
+  # Validate JSON syntax
+  if ! jq empty "$CONFIG_FILE" 2>/dev/null; then
+    echo "⚠️ Warning: config.json is invalid JSON. Using defaults." >&2
+    return 1
+  fi
+
+  return 0
+}
+
+# Read config with validation
+if read_config; then
+  LANG=$(jq -r '.language // "en"' "$CONFIG_FILE")
+  # Validate language value
+  case "$LANG" in
+    en|ko|ja|zh) ;;
+    *) echo "⚠️ Warning: Invalid language '$LANG'. Using 'en'." >&2; LANG="en" ;;
+  esac
+
+  # Read database path
+  DB_PATH=$(jq -r '.db_path // ".claude/calibrator/patterns.db"' "$CONFIG_FILE")
+else
+  LANG="en"
+  DB_PATH=".claude/calibrator/patterns.db"
+fi
 ```
 
 ## Pre-execution Check
