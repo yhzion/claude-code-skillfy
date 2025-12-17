@@ -214,15 +214,7 @@ SAFE_SKILL_PATH=$(escape_sql "$SKILL_OUTPUT_PATH/$SKILL_NAME")
 sqlite3 "$DB_PATH" "UPDATE patterns SET promoted = 1, skill_path = '$SAFE_SKILL_PATH' WHERE id = $PATTERN_ID;"
 
 # Output completion message (guaranteed to display)
-echo ""
-echo "✅ Skill created"
-echo ""
-echo "- $SKILL_OUTPUT_PATH/$SKILL_NAME/SKILL.md"
-echo ""
-echo "🔄 To activate this Skill, start a new Claude Code session."
-echo "   (Skills are loaded at session start)"
-echo ""
-echo "Claude will then automatically apply this rule in \"$SITUATION\" situations."
+printf '\n✅ Skill created\n\n- %s/%s/SKILL.md\n\n🔄 To activate this Skill, start a new Claude Code session.\n   (Skills are loaded at session start)\n\nClaude will then automatically apply this rule in "%s" situations.\n' "$SKILL_OUTPUT_PATH" "$SKILL_NAME" "$SITUATION"
 ```
 
 ## Reference: Skill Name Conversion Rules
