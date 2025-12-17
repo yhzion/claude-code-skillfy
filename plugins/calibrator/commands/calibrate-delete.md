@@ -1,7 +1,7 @@
 ---
 name: calibrate delete
 description: Delete promoted Skills (multi-select)
-allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(echo:*), Bash(rm:*), Bash(printf:*), Bash(realpath:*)
+allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(echo:*), Bash(rm:*), Bash(printf:*), Bash(realpath:*), Bash(tr:*)
 ---
 
 # /calibrate delete
@@ -158,6 +158,10 @@ escape_sql() {
   printf '%s' "$1" | sed "s/'/''/g"
 }
 
+# Input sanitization: remove non-numeric and non-comma characters to prevent IFS injection
+SANITIZED_IDS=$(echo "$DELETE_IDS" | tr -cd '0-9,')
+IFS=',' read -ra SKILL_IDS <<< "$SANITIZED_IDS"
+
 # Track results
 DELETED_COUNT=0
 FAILED_COUNT=0
@@ -192,15 +196,9 @@ for SKILL_ID in "${SKILL_IDS[@]}"; do
     continue
   fi
 
-  # Delete SKILL.md file (preserve directory)
-  # If file deletion fails, skip DB update to maintain consistency
-  if [ -n "$SKILL_PATH" ] && [ -f "$SKILL_PATH/SKILL.md" ]; then
-    if ! rm "$SKILL_PATH/SKILL.md" 2>/dev/null; then
-      echo "⚠️ Skipping id=$SKILL_ID: Failed to delete file (DB not updated for consistency)"
-      FAILED_COUNT=$((FAILED_COUNT + 1))
-      continue
-    fi
-  fi
+  # DB-first approach for better consistency:
+  # 1. Update DB first (if fails, file remains intact)
+  # 2. Delete file second (if fails, DB already updated but orphan file is non-critical)
 
   # Update database: unpromote and clear skill_path
   if ! sqlite3 "$DB_PATH" <<SQL
@@ -209,9 +207,17 @@ UPDATE patterns SET promoted = 0, skill_path = NULL WHERE id = $SKILL_ID;
 COMMIT;
 SQL
   then
-    echo "⚠️ Warning: Database update failed for id=$SKILL_ID"
+    echo "⚠️ Skipping id=$SKILL_ID: Database update failed"
     FAILED_COUNT=$((FAILED_COUNT + 1))
     continue
+  fi
+
+  # Delete SKILL.md file (preserve directory)
+  # File deletion failure is non-critical since DB is already updated
+  if [ -n "$SKILL_PATH" ] && [ -f "$SKILL_PATH/SKILL.md" ]; then
+    if ! rm "$SKILL_PATH/SKILL.md" 2>/dev/null; then
+      echo "⚠️ Warning: File deletion failed for $SKILL_PATH/SKILL.md (DB already updated)"
+    fi
   fi
 
   printf '  ✓ Deleted: %s (id=%d)\n' "$SITUATION" "$SKILL_ID"

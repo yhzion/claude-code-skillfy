@@ -1,7 +1,7 @@
 ---
 name: calibrate refactor
 description: Edit existing Skills and merge similar patterns
-allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(sed:*), Bash(printf:*), Bash(echo:*), Bash(awk:*), Bash(mktemp:*), Bash(basename:*), Bash(rm:*), Bash(mv:*), Bash(realpath:*)
+allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(sed:*), Bash(printf:*), Bash(echo:*), Bash(awk:*), Bash(mktemp:*), Bash(basename:*), Bash(rm:*), Bash(mv:*), Bash(realpath:*), Bash(tr:*)
 ---
 
 # /calibrate refactor
@@ -300,8 +300,11 @@ Keep which instruction as primary? Enter pattern id:
 
 ### Step 2-2: Merge Patterns
 ```bash
+# Input sanitization: remove non-numeric and non-comma characters to prevent IFS injection
+SANITIZED_IDS=$(echo "$MERGE_IDS" | tr -cd '0-9,')
+
 # Validate all pattern ids
-IFS=',' read -ra PATTERN_IDS <<< "$MERGE_IDS"
+IFS=',' read -ra PATTERN_IDS <<< "$SANITIZED_IDS"
 
 # Validate array length (minimum 2 patterns required for merge)
 if [ ${#PATTERN_IDS[@]} -lt 2 ]; then
@@ -317,6 +320,7 @@ fi
 
 TOTAL_COUNT=0
 PRIMARY_INSTRUCTION=""
+EXPECTED_SITUATION=""
 
 for PID in "${PATTERN_IDS[@]}"; do
   PID=$(echo "$PID" | xargs)  # trim whitespace
@@ -326,10 +330,10 @@ for PID in "${PATTERN_IDS[@]}"; do
     exit 1
   fi
 
-  # Get count and instruction
+  # Get situation, count and instruction
   if [ "$PID" = "$PRIMARY_ID" ]; then
     ROW=$(sqlite3 -separator $'\t' "$DB_PATH" \
-      "SELECT instruction, count FROM patterns WHERE id = $PID AND promoted = 0;" \
+      "SELECT situation, instruction, count FROM patterns WHERE id = $PID AND promoted = 0;" \
       2>/dev/null) || ROW=""
 
     if [ -z "$ROW" ]; then
@@ -337,15 +341,27 @@ for PID in "${PATTERN_IDS[@]}"; do
       exit 1
     fi
 
-    IFS=$'\t' read -r PRIMARY_INSTRUCTION COUNT <<<"$ROW"
+    IFS=$'\t' read -r PATTERN_SITUATION PRIMARY_INSTRUCTION COUNT <<<"$ROW"
+    EXPECTED_SITUATION="$PATTERN_SITUATION"
     TOTAL_COUNT=$((TOTAL_COUNT + COUNT))
   else
-    COUNT=$(sqlite3 "$DB_PATH" \
-      "SELECT count FROM patterns WHERE id = $PID AND promoted = 0;" \
-      2>/dev/null) || COUNT=""
+    ROW=$(sqlite3 -separator $'\t' "$DB_PATH" \
+      "SELECT situation, count FROM patterns WHERE id = $PID AND promoted = 0;" \
+      2>/dev/null) || ROW=""
 
-    if [ -z "$COUNT" ]; then
+    if [ -z "$ROW" ]; then
       echo "❌ Error: Pattern not found (id=$PID)"
+      exit 1
+    fi
+
+    IFS=$'\t' read -r PATTERN_SITUATION COUNT <<<"$ROW"
+
+    # Validate all patterns have the same situation
+    if [ -n "$EXPECTED_SITUATION" ] && [ "$PATTERN_SITUATION" != "$EXPECTED_SITUATION" ]; then
+      echo "❌ Error: Pattern id=$PID has different situation"
+      echo "   Expected: $EXPECTED_SITUATION"
+      echo "   Found: $PATTERN_SITUATION"
+      echo "   Only patterns with the same situation can be merged"
       exit 1
     fi
 
