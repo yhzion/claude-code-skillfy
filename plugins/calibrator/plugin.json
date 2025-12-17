@@ -8,7 +8,8 @@
     "./commands/calibrate-review.md",
     "./commands/calibrate-status.md",
     "./commands/calibrate-reset.md",
-    "./commands/calibrate-auto.md"
+    "./commands/calibrate-auto.md",
+    "./commands/calibrate-refactor.md"
   ],
   "skills": [
     "./skills/auto-calibrate.md"
