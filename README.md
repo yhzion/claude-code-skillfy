@@ -453,6 +453,139 @@ Record your first mismatch with /calibrate.
 
 ---
 
+### Edit Skills & Merge Patterns
+
+```bash
+/calibrate refactor
+```
+
+Edit existing Skills, merge similar patterns, or remove duplicates.
+
+<details>
+<summary>📖 Detailed Usage</summary>
+
+**Mode Selection:**
+```
+🔧 Calibrator Refactor
+
+What would you like to do?
+
+1. Edit Skill - Modify instruction or situation of existing Skills
+2. Merge patterns - Combine similar patterns (same situation)
+3. Remove duplicates - Delete exact duplicate patterns
+
+Select mode (1/2/3):
+```
+
+**Mode 1: Edit Skill**
+- View all promoted Skills
+- Select a Skill to edit by ID
+- Modify situation, instruction, or both
+- Updates both database and SKILL.md file
+
+**Mode 2: Merge Patterns**
+- Find patterns with same situation but different instructions
+- Select patterns to merge
+- Choose primary instruction to keep
+- Combines counts from merged patterns
+
+**Mode 3: Remove Duplicates**
+- Detects exact duplicate patterns
+- Cleans up database integrity issues
+- Keeps one copy of each unique pattern
+
+</details>
+
+---
+
+### Delete Skills
+
+```bash
+/calibrate delete
+```
+
+Delete promoted Skills (multi-select support).
+
+<details>
+<summary>📖 Detailed Usage</summary>
+
+**Step 1: View Promoted Skills**
+```
+🗑️ Delete Promoted Skills
+
+Select Skills to delete (pattern data will be preserved, only SKILL.md files will be removed):
+
+[id=1] Creating React components → Always define TypeScript interface (3 times)
+       Path: .claude/skills/creating-react-components
+[id=5] API endpoints → Always include error handling (5 times)
+       Path: .claude/skills/api-endpoints
+
+Enter skill id(s) to delete (comma-separated for multiple, or 'skip' to cancel):
+Example: 1 or 1,5
+```
+
+**Step 2: Confirmation**
+- "Are you sure you want to delete these Skills?"
+- [Yes, delete selected Skills] [Cancel]
+
+**Step 3: Result**
+```
+✅ Skill deletion complete
+
+- Deleted: 2 skill(s)
+- Failed: 0 skill(s)
+
+Pattern data has been preserved. You can re-promote patterns with /calibrate review.
+
+🔄 Restart Claude Code session to apply changes.
+```
+
+**What happens:**
+- SKILL.md file: Deleted
+- Skill directory: Preserved (empty directory remains)
+- Database pattern: Preserved with `promoted = 0`
+- Pattern count: Preserved (can be re-promoted later)
+
+</details>
+
+---
+
+### Show Help
+
+```bash
+/calibrate help
+```
+
+Display available commands and current status.
+
+<details>
+<summary>📖 Detailed Usage</summary>
+
+**Output (when initialized):**
+```
+📚 Calibrator Help
+
+Status: ✅ Initialized | Patterns: {count} | Skills: {count} | Pending: {count}
+
+Commands:
+  /calibrate init      Initialize Calibrator
+  /calibrate           Record an expectation mismatch
+  /calibrate status    View statistics
+  /calibrate review    Promote patterns to Skills
+  /calibrate refactor  Edit Skills and merge patterns
+  /calibrate delete    Delete promoted Skills
+  /calibrate auto      Toggle auto pattern detection (on/off)
+  /calibrate reset     Delete all data
+  /calibrate help      Show this help
+
+Quick Start:
+  1. /calibrate init → 2. /calibrate → 3. /calibrate review
+```
+
+</details>
+
+---
+
 ### Reset Data
 
 ```bash
