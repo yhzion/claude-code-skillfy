@@ -10,6 +10,7 @@
     "./commands/calibrate-reset.md",
     "./commands/calibrate-auto.md",
     "./commands/calibrate-refactor.md",
+    "./commands/calibrate-delete.md",
     "./commands/calibrate-help.md"
   ],
   "skills": [
