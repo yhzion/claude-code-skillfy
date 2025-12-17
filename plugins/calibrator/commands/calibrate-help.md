@@ -1,7 +1,7 @@
 ---
 name: calibrate help
 description: Show available commands and usage guide
-allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(echo:*)
+allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(echo:*)
 ---
 
 # /calibrate help
