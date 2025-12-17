@@ -1,55 +1,59 @@
 ---
 name: calibrate
-description: LLM 기대 불일치 기록. 초기화되지 않은 경우 초기화 안내.
+description: Record LLM expectation mismatches. Guide to initialize if not initialized.
 ---
 
 # /calibrate
 
-Claude가 기대와 다르게 생성했을 때 패턴을 기록합니다.
+Record patterns when Claude generates something different from expectations.
 
-## i18n 메시지 참조
+## i18n Message Reference
 
-모든 사용자 대면 메시지는 `plugins/calibrator/i18n/messages.json`을 참조합니다.
-실행 시 `.claude/calibrator/config.json`의 `language` 필드를 읽어 해당 언어 메시지를 사용합니다.
+All user-facing messages reference `plugins/calibrator/i18n/messages.json`.
+At runtime, reads the `language` field from `.claude/calibrator/config.json` to use appropriate language messages.
 
 ```bash
-# jq 사용으로 안정적인 JSON 파싱
+# Stable JSON parsing using jq
 LANG=$(jq -r '.language // "en"' .claude/calibrator/config.json 2>/dev/null)
-LANG=${LANG:-en}  # 기본값: 영어
+LANG=${LANG:-en}  # Default: English
 ```
 
-## 실행 전 확인
+## Pre-execution Check
 
-### Step 0: 의존성 확인
+### Step 0: Dependency Check
 ```bash
-# 필수 의존성 체크
+# Check required dependencies
 if ! command -v sqlite3 &> /dev/null; then
   echo "❌ Error: sqlite3 is required but not installed."
   exit 1
 fi
 ```
 
-1. `.claude/calibrator/patterns.db` 존재 여부 확인:
+1. Check if `.claude/calibrator/patterns.db` exists:
    ```bash
-   test -f .claude/calibrator/patterns.db
+   # Read database path from config
+   DB_PATH=$(jq -r '.db_path // ".claude/calibrator/patterns.db"' .claude/calibrator/config.json 2>/dev/null)
+   DB_PATH=${DB_PATH:-.claude/calibrator/patterns.db}
+
+   test -f "$DB_PATH"
    ```
 
-2. 파일이 없으면:
-   - i18n 키: `calibrate.not_initialized` - 사용자에게 초기화 여부 질문
-   - Y 선택 시: `/calibrate init` 실행 후 계속 진행
-   - n 선택 시: i18n 키: `calibrate.run_init_first` 안내 후 종료
+2. If file doesn't exist:
+   - i18n key: `calibrate.not_initialized` - Ask user if they want to initialize
+   - Y selected: Run `/calibrate init` then continue
+   - n selected: i18n key: `calibrate.run_init_first` message then exit
 
-## 기록 플로우
+## Recording Flow
 
-### Step 1: 카테고리 선택
-i18n 키 참조:
-- `calibrate.category_prompt` - 질문
-- `calibrate.category_missing` - 옵션 1
-- `calibrate.category_excess` - 옵션 2
-- `calibrate.category_style` - 옵션 3
-- `calibrate.category_other` - 옵션 4
+### Step 1: Category Selection
+i18n key reference:
+- `calibrate.category_prompt` - Question
+- `calibrate.category_missing` - Option 1
+- `calibrate.category_excess` - Option 2
+- `calibrate.category_style` - Option 3
+- `calibrate.category_other` - Option 4
 
-영어 예시:
+English example:
 ```
 What kind of mismatch just happened?
 
@@ -59,20 +63,20 @@ What kind of mismatch just happened?
 4. Let me explain
 ```
 
-카테고리 매핑:
+Category mapping:
 - 1 → `missing`
 - 2 → `excess`
 - 3 → `style`
 - 4 → `other`
 
-### Step 2: 상황과 기대 입력
-i18n 키 참조:
-- `calibrate.situation_prompt` - 질문
-- `calibrate.situation_example` - 예시
-- `calibrate.situation_label` - 상황 레이블
-- `calibrate.expectation_label` - 기대 레이블
+### Step 2: Situation and Expectation Input
+i18n key reference:
+- `calibrate.situation_prompt` - Question
+- `calibrate.situation_example` - Example
+- `calibrate.situation_label` - Situation label
+- `calibrate.expectation_label` - Expectation label
 
-영어 예시:
+English example:
 ```
 In what situation, and what did you expect?
 Example: "When creating a model, include timestamp field"
@@ -81,49 +85,49 @@ Situation: [user input]
 Expected: [user input]
 ```
 
-### Step 3: DB 기록
+### Step 3: Database Recording
 
-**입력값 이스케이핑** (SQL Injection 방지):
+**Input Escaping** (SQL Injection Prevention):
 ```bash
-# 싱글쿼트 이스케이핑: ' → ''
+# Single quote escaping: ' → ''
 SAFE_CATEGORY=$(printf '%s' "$CATEGORY" | sed "s/'/''/g")
 SAFE_SITUATION=$(printf '%s' "$SITUATION" | sed "s/'/''/g")
 SAFE_EXPECTATION=$(printf '%s' "$EXPECTATION" | sed "s/'/''/g")
 SAFE_INSTRUCTION=$(printf '%s' "$INSTRUCTION" | sed "s/'/''/g")
 ```
 
-1. observations 테이블에 기록:
+1. Record to observations table:
    ```bash
-   sqlite3 .claude/calibrator/patterns.db "INSERT INTO observations (category, situation, expectation) VALUES ('$SAFE_CATEGORY', '$SAFE_SITUATION', '$SAFE_EXPECTATION');"
+   sqlite3 "$DB_PATH" "INSERT INTO observations (category, situation, expectation) VALUES ('$SAFE_CATEGORY', '$SAFE_SITUATION', '$SAFE_EXPECTATION');"
    ```
 
-2. patterns 테이블에서 동일 situation 검색:
+2. Update patterns table using UPSERT (atomic operation to prevent race conditions):
    ```bash
-   sqlite3 .claude/calibrator/patterns.db "SELECT id, count FROM patterns WHERE situation = '$SAFE_SITUATION';"
+   # Use INSERT ... ON CONFLICT for atomic upsert operation
+   sqlite3 "$DB_PATH" "INSERT INTO patterns (situation, instruction, count)
+     VALUES ('$SAFE_SITUATION', '$SAFE_INSTRUCTION', 1)
+     ON CONFLICT(situation)
+     DO UPDATE SET count = count + 1, last_seen = CURRENT_TIMESTAMP;"
    ```
 
-   - 있으면: count +1, last_seen 업데이트
-     ```bash
-     sqlite3 .claude/calibrator/patterns.db "UPDATE patterns SET count = count + 1, last_seen = CURRENT_TIMESTAMP WHERE situation = '$SAFE_SITUATION';"
-     ```
-   - 없으면: 새 패턴 생성, instruction은 기대를 DO 형태로 변환
-     ```bash
-     sqlite3 .claude/calibrator/patterns.db "INSERT INTO patterns (situation, instruction) VALUES ('$SAFE_SITUATION', '$SAFE_INSTRUCTION');"
-     ```
+   Instruction generation rules:
+   - Convert expectation to imperative form
+   - Example: "include timestamp field" → "Always include timestamp field"
 
-   instruction 생성 규칙:
-   - 기대(expectation)를 명령형으로 변환
-   - 예: "timestamp 필드 포함" → "timestamp 필드를 항상 포함하세요"
+3. Get current pattern count:
+   ```bash
+   COUNT=$(sqlite3 "$DB_PATH" "SELECT count FROM patterns WHERE situation = '$SAFE_SITUATION';")
+   ```
 
-### Step 4: 결과 출력
-i18n 키 참조:
-- `calibrate.record_complete` - 완료 타이틀
-- `calibrate.situation_label` - 상황 레이블
-- `calibrate.expectation_label` - 기대 레이블
-- `calibrate.pattern_count` - 패턴 누적 횟수 (placeholder: {count})
-- `calibrate.promotion_hint` - 승격 안내
+### Step 4: Output Result
+i18n key reference:
+- `calibrate.record_complete` - Completion title
+- `calibrate.situation_label` - Situation label
+- `calibrate.expectation_label` - Expectation label
+- `calibrate.pattern_count` - Pattern accumulation count (placeholder: {count})
+- `calibrate.promotion_hint` - Promotion hint
 
-영어 예시:
+English example:
 ```
 ✅ Record complete
 
@@ -133,7 +137,7 @@ Expected: {expectation}
 Same pattern accumulated {count} times
 ```
 
-count가 2 이상이면 추가:
+If count is 2 or more, add:
 ```
 💡 You can promote this to a Skill with /calibrate review.
 ```

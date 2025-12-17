@@ -1,82 +1,88 @@
 ---
 name: calibrate status
-description: Calibrator 통계 조회
+description: View Calibrator statistics
 ---
 
 # /calibrate status
 
-현재 기록된 패턴과 통계를 확인합니다.
+View currently recorded patterns and statistics.
 
-## i18n 메시지 참조
+## i18n Message Reference
 
-모든 사용자 대면 메시지는 `plugins/calibrator/i18n/messages.json`을 참조합니다.
-실행 시 `.claude/calibrator/config.json`의 `language` 필드를 읽어 해당 언어 메시지를 사용합니다.
+All user-facing messages reference `plugins/calibrator/i18n/messages.json`.
+At runtime, reads the `language` field from `.claude/calibrator/config.json` to use appropriate language messages.
 
 ```bash
-# jq 사용으로 안정적인 JSON 파싱
+# Stable JSON parsing using jq
 LANG=$(jq -r '.language // "en"' .claude/calibrator/config.json 2>/dev/null)
-LANG=${LANG:-en}  # 기본값: 영어
+LANG=${LANG:-en}  # Default: English
+
+# Read database path from config
+DB_PATH=$(jq -r '.db_path // ".claude/calibrator/patterns.db"' .claude/calibrator/config.json 2>/dev/null)
+DB_PATH=${DB_PATH:-.claude/calibrator/patterns.db}
+
+# Read threshold from config
+THRESHOLD=$(jq -r '.threshold // 2' .claude/calibrator/config.json 2>/dev/null)
+THRESHOLD=${THRESHOLD:-2}
 ```
 
-## 실행 전 확인
+## Pre-execution Check
 
-### Step 0: 의존성 및 DB 확인
+### Step 0: Dependency and DB Check
 ```bash
-# 필수 의존성 체크
+# Check required dependencies
 if ! command -v sqlite3 &> /dev/null; then
   echo "❌ Error: sqlite3 is required but not installed."
   exit 1
 fi
 
-# DB 존재 확인
-if [ ! -f .claude/calibrator/patterns.db ]; then
-  # i18n 키 `calibrate.run_init_first` 안내
+# Check DB exists
+if [ ! -f "$DB_PATH" ]; then
+  # i18n key `calibrate.run_init_first` message
   exit 1
 fi
 ```
 
-## 플로우
+## Flow
 
-### Step 1: 통계 쿼리 실행 (에러 핸들링 포함)
+### Step 1: Execute Statistics Queries (with error handling)
 ```bash
-DB_PATH=".claude/calibrator/patterns.db"
-
-# 쿼리 실행 함수 (에러 핸들링)
+# Query execution function (with error handling)
 run_query() {
   result=$(sqlite3 "$DB_PATH" "$1" 2>/dev/null)
   if [ $? -ne 0 ]; then
-    echo "0"  # 에러 시 기본값 반환
+    echo "0"  # Return default value on error
   else
     echo "${result:-0}"
   fi
 }
 
-# 총 관찰 기록 수
+# Total observation count
 TOTAL_OBS=$(run_query "SELECT COUNT(*) FROM observations;")
 
-# 총 패턴 수
+# Total pattern count
 TOTAL_PATTERNS=$(run_query "SELECT COUNT(*) FROM patterns;")
 
-# Skill로 승격된 패턴 수
+# Count of patterns promoted to Skills
 PROMOTED=$(run_query "SELECT COUNT(*) FROM patterns WHERE promoted = TRUE;")
 
-# 승격 대기중인 패턴 수 (2회 이상 반복)
-PENDING=$(run_query "SELECT COUNT(*) FROM patterns WHERE count >= 2 AND promoted = FALSE;")
+# Count of patterns pending promotion (repeated 2+ times) - uses configurable threshold
+PENDING=$(run_query "SELECT COUNT(*) FROM patterns WHERE count >= $THRESHOLD AND promoted = FALSE;")
 
-# 최근 3개 관찰 기록
+# Recent 3 observation records
 RECENT=$(sqlite3 "$DB_PATH" "SELECT timestamp, category, situation FROM observations ORDER BY timestamp DESC LIMIT 3;" 2>/dev/null)
 ```
 
-### Step 2: 출력 형식
-i18n 키 참조:
-- `status.title` - 타이틀
-- `status.total_observations` - 총 관찰 기록
-- `status.detected_patterns` - 감지된 패턴
-- `status.promoted_skills` - Skill 승격됨
-- `status.pending_promotion` - 승격 대기중
-- `status.recent_records` - 최근 기록
+### Step 2: Output Format
+i18n key reference:
+- `status.title` - Title
+- `status.total_observations` - Total observations
+- `status.detected_patterns` - Detected patterns
+- `status.promoted_skills` - Promoted to Skills
+- `status.pending_promotion` - Pending promotion
+- `status.recent_records` - Recent records
 
-영어 예시:
+English example:
 ```
 📊 Calibrator Status
 
@@ -91,20 +97,20 @@ Recent records:
 - [{timestamp}] {category}: {situation}
 ```
 
-### Step 3: 승격 대기 안내
-i18n 키: `status.promotion_hint`
+### Step 3: Pending Promotion Notice
+i18n key: `status.promotion_hint`
 
-PENDING이 0보다 크면 추가:
+If PENDING is greater than 0, add:
 ```
 💡 Run /calibrate review to promote pending patterns to Skills.
 ```
 
-### Step 4: 데이터 없음 시
-i18n 키 참조:
-- `status.no_data_title` - 타이틀
-- `status.no_data_desc` - 설명
+### Step 4: No Data Case
+i18n key reference:
+- `status.no_data_title` - Title
+- `status.no_data_desc` - Description
 
-TOTAL_OBS가 0이면 (영어 예시):
+If TOTAL_OBS is 0 (English example):
 ```
 📊 Calibrator Status
 

@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Language preference stored in `config.json`
   - Option to change language for existing installations
 
-## [0.1.0] - 2025-12-17
+## [0.1.0] - 2024-12-17
 
 ### Added
 

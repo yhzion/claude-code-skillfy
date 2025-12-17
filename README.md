@@ -1,6 +1,8 @@
 # Claude Code Calibrator
 
-A Claude Code plugin that corrects patterns where LLM Agents repeatedly generate outputs that don't match user expectations.
+Teach Claude once, apply automatically.
+
+A Claude Code plugin that learns from your corrections and applies them consistently.
 
 ## Core Concept
 
@@ -108,11 +110,60 @@ All user-facing messages support multiple languages:
 
 Language can be selected during `/calibrate init` or changed later by re-running init.
 
+## Configuration
+
+The `config.json` file supports the following options:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `language` | string | `"en"` | UI language (en, ko, ja, zh) |
+| `threshold` | number | `2` | Minimum repetitions for promotion eligibility |
+| `db_path` | string | `".claude/calibrator/patterns.db"` | Database file location |
+| `skill_output_path` | string | `".claude/skills/learned"` | Directory for generated Skills |
+
+## Security Considerations
+
+### Data Privacy
+- **patterns.db may contain sensitive data**: The database stores situations and expectations you record. Be mindful of what information you include.
+- **Automatic .gitignore**: The init command automatically adds `.claude/calibrator/` to `.gitignore` to prevent accidental commits.
+- **Backup exclusions**: Consider excluding `.claude/calibrator/` from cloud sync services if it contains sensitive information.
+
+### File Permissions
+- Ensure `.claude/` directory is not world-readable if it contains sensitive patterns
+- The database file should only be accessible by your user account
+
+### Input Validation
+- SQL injection is prevented through quote escaping
+- Path traversal is prevented in skill name generation
+- Config validation warns about malformed configuration
+
+## Troubleshooting
+
+### Common Issues
+
+**"sqlite3 is required but not installed"**
+- macOS/Linux: sqlite3 is typically pre-installed
+- Windows: Install from https://sqlite.org/download.html
+
+**"jq is required but not installed"**
+- macOS: `brew install jq`
+- Ubuntu/Debian: `apt install jq`
+- Windows: Download from https://stedolan.github.io/jq/download/
+
+**"config.json is missing required fields"**
+- Re-run `/calibrate init` to regenerate the config file
+- Or manually add missing fields: `language`, `threshold`, `skill_output_path`, `db_path`
+
+**Skills not being applied**
+- Ensure the skill was properly promoted (check `/calibrate status`)
+- Verify the skill file exists in `.claude/skills/learned/`
+
 ## Requirements
 
 - Claude Code
 - sqlite3 CLI (pre-installed on macOS/Linux)
 - jq (JSON processor) - Install via `brew install jq` on macOS or `apt install jq` on Linux
+- SQLite version 3.24.0+ (for UPSERT support)
 
 ## License
 

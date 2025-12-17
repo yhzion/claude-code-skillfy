@@ -1,7 +1,7 @@
 {
   "name": "calibrator",
   "version": "0.1.0",
-  "description": "LLM Agent expectation mismatch correction plugin",
+  "description": "Claude Code expectation mismatch correction plugin",
   "commands": [
     "./commands/calibrate.md",
     "./commands/calibrate-init.md",

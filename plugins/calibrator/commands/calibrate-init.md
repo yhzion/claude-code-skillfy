@@ -1,28 +1,28 @@
 ---
 name: calibrate init
-description: Calibrator 초기화. DB 및 설정 파일 생성.
+description: Initialize Calibrator. Create database and config files.
 ---
 
 # /calibrate init
 
-Calibrator를 초기화합니다.
+Initialize the Calibrator system.
 
-## i18n 메시지 참조
+## i18n Message Reference
 
-모든 사용자 대면 메시지는 `plugins/calibrator/i18n/messages.json`을 참조합니다.
-언어 설정은 `.claude/calibrator/config.json`의 `language` 필드에 저장됩니다.
+All user-facing messages reference `plugins/calibrator/i18n/messages.json`.
+Language setting is stored in the `language` field of `.claude/calibrator/config.json`.
 
-지원 언어:
+Supported languages:
 - `en` - English (default)
 - `ko` - Korean (한국어)
 - `ja` - Japanese (日本語)
 - `zh` - Chinese (中文)
 
-## 실행 플로우
+## Execution Flow
 
-### Step 0: 의존성 확인
+### Step 0: Dependency Check
 ```bash
-# 필수 의존성 체크
+# Check required dependencies
 check_dependency() {
   if ! command -v "$1" &> /dev/null; then
     echo "❌ Error: $1 is required but not installed."
@@ -32,14 +32,49 @@ check_dependency() {
 
 check_dependency sqlite3
 check_dependency jq
+
+# Config schema validation function
+validate_config() {
+  local config_file="$1"
+
+  # Check if config file exists and is valid JSON
+  if [ ! -f "$config_file" ]; then
+    return 1
+  fi
+
+  # Validate required fields exist and have correct types
+  if ! jq -e '.language and .threshold and .skill_output_path and .db_path' "$config_file" >/dev/null 2>&1; then
+    echo "⚠️ Warning: config.json is missing required fields. Will use defaults."
+    return 1
+  fi
+
+  # Validate language is one of supported values
+  local lang=$(jq -r '.language' "$config_file" 2>/dev/null)
+  case "$lang" in
+    en|ko|ja|zh) ;;
+    *)
+      echo "⚠️ Warning: Invalid language '$lang' in config. Using 'en'."
+      return 1
+      ;;
+  esac
+
+  # Validate threshold is a positive integer
+  local threshold=$(jq -r '.threshold' "$config_file" 2>/dev/null)
+  if ! [[ "$threshold" =~ ^[1-9][0-9]*$ ]]; then
+    echo "⚠️ Warning: Invalid threshold '$threshold' in config. Using '2'."
+    return 1
+  fi
+
+  return 0
+}
 ```
 
-### Step 1: 기존 설치 확인
+### Step 1: Check Existing Installation
 ```bash
 test -d .claude/calibrator
 ```
 
-### Step 2-A: 신규 설치 - 언어 선택
+### Step 2-A: New Installation - Language Selection
 ```
 🌐 Select Language
 
@@ -53,28 +88,28 @@ Choose your preferred language for Calibrator:
 [1-4]: _
 ```
 
-언어 매핑 (입력값 검증 포함):
+Language mapping (with input validation):
 ```bash
-# 입력값 검증 및 매핑
+# Input validation and mapping
 validate_language() {
   case "$1" in
     1|"") echo "en" ;;
     2)    echo "ko" ;;
     3)    echo "ja" ;;
     4)    echo "zh" ;;
-    *)    echo "" ;;  # 잘못된 입력
+    *)    echo "" ;;  # Invalid input
   esac
 }
 
 LANG_CODE=$(validate_language "$USER_INPUT")
 if [ -z "$LANG_CODE" ]; then
   echo "❌ Invalid selection. Please enter 1-4."
-  # 다시 선택 화면으로
+  # Return to selection screen
 fi
 ```
 
-### Step 2-B: 신규 설치 - 확인
-선택된 언어로 메시지를 표시합니다. (아래는 영어 예시)
+### Step 2-B: New Installation - Confirmation
+Display messages in the selected language. (English example below)
 ```
 ⚙️ Calibrator Initialization
 
@@ -85,36 +120,40 @@ Files to create:
 [Confirm] [Cancel]
 ```
 
-확인 시:
+On confirmation:
 ```bash
-# 디렉토리 생성 (에러 핸들링)
+# Create directories (with error handling)
 if ! mkdir -p .claude/calibrator; then
   echo "❌ Error: Failed to create .claude/calibrator directory"
   exit 1
 fi
 mkdir -p .claude/skills/learned
 
-# schema.sql 파일로 DB 생성 (에러 핸들링)
+# Create DB from schema.sql (with error handling and cleanup on failure)
 if ! sqlite3 .claude/calibrator/patterns.db < plugins/calibrator/schemas/schema.sql; then
+  rm -f .claude/calibrator/patterns.db
   echo "❌ Error: Failed to create database"
   exit 1
 fi
 
-# config.json 생성 (jq 사용으로 안전한 JSON 생성)
+# Create config.json (safe JSON generation using jq)
+# Includes db_path for configurable database location
 jq -n \
   --arg version "1.0.0" \
   --arg language "$LANG_CODE" \
   --argjson threshold 2 \
   --arg skill_output_path ".claude/skills/learned" \
-  '{version: $version, language: $language, threshold: $threshold, skill_output_path: $skill_output_path}' \
+  --arg db_path ".claude/calibrator/patterns.db" \
+  '{version: $version, language: $language, threshold: $threshold, skill_output_path: $skill_output_path, db_path: $db_path}' \
   > .claude/calibrator/config.json
 
 if [ $? -ne 0 ]; then
+  rm -f .claude/calibrator/patterns.db
   echo "❌ Error: Failed to create config.json"
   exit 1
 fi
 
-# .gitignore 업데이트 (Git 프로젝트인 경우)
+# Update .gitignore (for Git projects)
 if [ -d .git ]; then
   GITIGNORE_ENTRIES="
 # Calibrator runtime data (auto-added by /calibrate init)
@@ -125,26 +164,26 @@ if [ -d .git ]; then
 *.db-shm"
 
   if [ -f .gitignore ]; then
-    # 이미 calibrator 항목이 있는지 확인
+    # Check if calibrator entries already exist
     if ! grep -q ".claude/calibrator/" .gitignore; then
       echo "$GITIGNORE_ENTRIES" >> .gitignore
-      echo "📝 .gitignore에 Calibrator 제외 항목 추가됨"
+      echo "📝 Calibrator entries added to .gitignore"
     fi
   else
-    # .gitignore 파일 생성
+    # Create .gitignore file
     echo "$GITIGNORE_ENTRIES" > .gitignore
-    echo "📝 .gitignore 파일 생성됨"
+    echo "📝 .gitignore file created"
   fi
 fi
 ```
 
-### Step 2-C: 이미 존재할 때
+### Step 2-C: When Already Exists
 ```bash
-# 현재 설정된 언어 확인 (jq 사용으로 안정적인 JSON 파싱)
+# Check current language setting (stable JSON parsing using jq)
 CURRENT_LANG=$(jq -r '.language // "en"' .claude/calibrator/config.json)
 ```
 
-선택된 언어로 메시지를 표시합니다. (아래는 영어 예시)
+Display messages in the selected language. (English example below)
 ```
 ⚠️ Calibrator already exists
 
@@ -154,20 +193,20 @@ Current language: {CURRENT_LANG}
 [Keep] [Change Language] [Reinitialize (delete data)]
 ```
 
-- 유지 선택 시: 종료
-- 언어 변경 선택 시: 언어 선택 화면으로 이동 → config.json의 language 필드만 업데이트
-- 초기화 선택 시:
+- Keep selected: Exit
+- Change Language selected: Go to language selection screen → Only update language field in config.json
+- Reinitialize selected:
 ```bash
 rm -rf .claude/calibrator
-# 이후 신규 설치 진행 (언어 선택부터)
+# Proceed with new installation (starting from language selection)
 ```
 
-### Step 3: 완료 메시지
-선택된 언어로 완료 메시지를 표시합니다.
+### Step 3: Completion Message
+Display completion message in the selected language.
 
-i18n 키 참조: `init.complete_title`, `init.complete_db_created`, `init.complete_config_created`, `init.complete_skills_created`, `init.complete_gitignore`, `init.complete_next`
+i18n key reference: `init.complete_title`, `init.complete_db_created`, `init.complete_config_created`, `init.complete_skills_created`, `init.complete_gitignore`, `init.complete_next`
 
-영어 예시:
+English example:
 ```
 ✅ Calibrator initialization complete
 
@@ -179,7 +218,7 @@ i18n 키 참조: `init.complete_title`, `init.complete_db_created`, `init.comple
 You can now record mismatches with /calibrate.
 ```
 
-한국어 예시:
+Korean example:
 ```
 ✅ Calibrator 초기화 완료
 
