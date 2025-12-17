@@ -32,6 +32,26 @@ Claude suggests: "💡 Pattern repeated 2x → /calibrate review"
 Promote to Skill with /calibrate review
 ```
 
+## Installation
+
+```bash
+/plugin marketplace add yhzion/claude-code-calibrator
+/plugin install calibrator@yhzion-claude-code-calibrator
+```
+
+### Update
+
+```bash
+/plugin marketplace update yhzion-claude-code-calibrator
+```
+
+### Uninstall
+
+```bash
+/plugin uninstall calibrator@yhzion-claude-code-calibrator
+/plugin marketplace remove yhzion-claude-code-calibrator
+```
+
 ## Example: Teaching Claude Your Preferences
 
 Let's walk through a real scenario from start to finish.
@@ -165,26 +185,6 @@ The recommended workflow for effective calibration:
 - 🚀 After promoting Skills, **restart Claude Code** to load them
 - 🤖 **Auto-detection** records patterns automatically when fixing errors - no manual `/calibrate` needed
 - ⚙️ Use `/calibrate auto off` if you prefer **manual-only** recording
-
-## Installation
-
-```bash
-/plugin marketplace add yhzion/claude-code-calibrator
-/plugin install calibrator@yhzion-claude-code-calibrator
-```
-
-### Update
-
-```bash
-/plugin marketplace update yhzion-claude-code-calibrator
-```
-
-### Uninstall
-
-```bash
-/plugin uninstall calibrator@yhzion-claude-code-calibrator
-/plugin marketplace remove yhzion-claude-code-calibrator
-```
 
 ## Usage
 
