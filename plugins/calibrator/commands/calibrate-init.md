@@ -56,15 +56,37 @@ fi
 test -d "$PROJECT_ROOT/.claude/calibrator" || true
 ```
 
-### Step 2: New Installation - Confirmation
-```
-⚙️ Calibrator Initialization
+### Step 2: New Installation - User Confirmation
 
-Files to create:
-- .claude/calibrator/patterns.db
+Use the `AskUserQuestion` tool to ask the user for confirmation and preferences:
 
-[Confirm] [Cancel]
+**Question 1: Confirmation**
 ```
+header: "Initialize"
+question: "Initialize Calibrator? This will create .claude/calibrator/patterns.db"
+options:
+  - label: "Yes, initialize"
+    description: "Create database and directory structure"
+  - label: "Cancel"
+    description: "Do not initialize"
+```
+
+If user selects "Cancel", exit with message: "❌ Initialization cancelled."
+
+**Question 2: Auto-Detection Preference**
+```
+header: "Auto-Detect"
+question: "Enable automatic pattern detection?"
+options:
+  - label: "Yes (Recommended)"
+    description: "Automatically record patterns when fixing lint/format/type/build/test errors"
+  - label: "No"
+    description: "Only record patterns manually with /calibrate command"
+```
+
+Save user's choice:
+- "Yes (Recommended)" → `AUTO_DETECT_ENABLED="yes"`
+- "No" → `AUTO_DETECT_ENABLED="no"`
 
 On confirmation, execute Step 2-A, Step 2-B, and Step 2-C in order.
 
@@ -75,11 +97,11 @@ if ! mkdir -p "$PROJECT_ROOT/.claude/calibrator"; then
   echo "❌ Error: Failed to create .claude/calibrator directory"
   exit 1
 fi
-mkdir -p "$PROJECT_ROOT/.claude/skills/learned"
+mkdir -p "$PROJECT_ROOT/.claude/skills"
 
 # Set secure permissions
 chmod 700 "$PROJECT_ROOT/.claude/calibrator"        # Owner only: rwx
-chmod 700 "$PROJECT_ROOT/.claude/skills/learned"    # Owner only: rwx
+chmod 700 "$PROJECT_ROOT/.claude/skills"            # Owner only: rwx
 
 # Create DB from schema.sql (with error handling and cleanup on failure)
 if ! sqlite3 "$PROJECT_ROOT/.claude/calibrator/patterns.db" < "$PROJECT_ROOT/plugins/calibrator/schemas/schema.sql"; then
@@ -90,6 +112,17 @@ fi
 
 # Set secure permissions on DB file
 chmod 600 "$PROJECT_ROOT/.claude/calibrator/patterns.db"  # Owner only: rw
+
+# Create auto-detect flag file based on user preference
+# AUTO_DETECT_ENABLED should be "yes" (default) or "no"
+if [ "${AUTO_DETECT_ENABLED:-yes}" = "yes" ]; then
+  touch "$PROJECT_ROOT/.claude/calibrator/auto-detect.enabled"
+  chmod 600 "$PROJECT_ROOT/.claude/calibrator/auto-detect.enabled"
+  echo "📝 Auto pattern detection enabled"
+else
+  rm -f "$PROJECT_ROOT/.claude/calibrator/auto-detect.enabled"
+  echo "📝 Auto pattern detection disabled"
+fi
 ```
 
 ### Step 2-B: Update .gitignore (REQUIRED for Git projects)
@@ -102,7 +135,6 @@ if [ -d "$PROJECT_ROOT/.git" ]; then
   GITIGNORE_ENTRIES="
 # Calibrator runtime data (auto-added by /calibrate init)
 .claude/calibrator/
-.claude/skills/learned/
 .claude/calibrator/*.db-journal
 .claude/calibrator/*.db-wal
 .claude/calibrator/*.db-shm"
@@ -158,8 +190,10 @@ English example:
 ✅ Calibrator initialization complete
 
 - .claude/calibrator/patterns.db created
-- .claude/skills/learned/ directory created
+- .claude/skills/ directory created
 - .gitignore updated (if Git project)
+- Auto pattern detection: {enabled|disabled}
 
 You can now record mismatches with /calibrate.
+{If auto-detection enabled: Patterns will also be recorded automatically when fixing lint/format/type/build/test errors.}
 ```

@@ -62,32 +62,62 @@ fi
 ## Recording Flow
 
 ### Step 2: Category Selection
-English example:
-```
-What kind of mismatch just happened?
 
-1. Something was missing
-2. There was something unnecessary
-3. I wanted a different approach
-4. Let me explain
+Use the `AskUserQuestion` tool to ask the user to select a category:
+
+```
+header: "Category"
+question: "What kind of mismatch just happened?"
+options:
+  - label: "Something was missing"
+    description: "Expected output was not included"
+  - label: "Something unnecessary"
+    description: "Output included unwanted content"
+  - label: "Different approach"
+    description: "Wanted a different style or method"
+  - label: "Other"
+    description: "Let me explain in detail"
 ```
 
 Category mapping:
-- 1 → `missing`
-- 2 → `excess`
-- 3 → `style`
-- 4 → `other`
+- "Something was missing" → `CATEGORY="missing"`
+- "Something unnecessary" → `CATEGORY="excess"`
+- "Different approach" → `CATEGORY="style"`
+- "Other" → `CATEGORY="other"`
 
 ### Step 3: Situation and Expectation Input
-English example:
-```
-In what situation, and what did you expect?
-Example: "When creating a model, include timestamp field"
 
-Situation: [user input]
-Expected: [user input]
-Instruction (imperative rule to learn): [user input]
+Use the `AskUserQuestion` tool to collect input (3 separate questions):
+
+**Question 1:**
 ```
+header: "Situation"
+question: "In what situation did this happen? (e.g., 'When creating a model')"
+options:
+  - label: "Let me describe"
+    description: "I'll type the situation"
+```
+→ User provides text input via "Other" option → Save as `SITUATION`
+
+**Question 2:**
+```
+header: "Expected"
+question: "What did you expect? (e.g., 'Include timestamp field')"
+options:
+  - label: "Let me describe"
+    description: "I'll type what I expected"
+```
+→ User provides text input via "Other" option → Save as `EXPECTATION`
+
+**Question 3:**
+```
+header: "Instruction"
+question: "What rule should Claude learn? (imperative form, e.g., 'Always include timestamp fields')"
+options:
+  - label: "Let me describe"
+    description: "I'll type the instruction"
+```
+→ User provides text input via "Other" option → Save as `INSTRUCTION`
 
 ### Step 4: Input Validation
 ```bash

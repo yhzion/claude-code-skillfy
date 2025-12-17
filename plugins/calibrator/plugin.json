@@ -7,9 +7,12 @@
     "./commands/calibrate-init.md",
     "./commands/calibrate-review.md",
     "./commands/calibrate-status.md",
-    "./commands/calibrate-reset.md"
+    "./commands/calibrate-reset.md",
+    "./commands/calibrate-auto.md"
   ],
-  "skills": [],
+  "skills": [
+    "./skills/auto-calibrate.md"
+  ],
   "hooks": {},
   "mcpServers": {}
 }

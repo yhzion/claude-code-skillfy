@@ -6,6 +6,7 @@ A Claude Code plugin that learns from your corrections and applies them consiste
 
 ## Core Concept
 
+### Manual Recording
 ```
 User requests Claude to correct output
        ↓
@@ -16,6 +17,19 @@ Detect when same pattern repeats
 Promote to Skill with /calibrate review
        ↓
 Claude automatically applies pattern going forward
+```
+
+### Auto-Detection (Default)
+```
+Claude fixes lint/type/build/test error
+       ↓
+Pattern automatically recorded (no /calibrate needed)
+       ↓
+Same pattern repeats 2+ times
+       ↓
+Claude suggests: "💡 Pattern repeated 2x → /calibrate review"
+       ↓
+Promote to Skill with /calibrate review
 ```
 
 ## Example: Teaching Claude Your Preferences
@@ -149,6 +163,8 @@ The recommended workflow for effective calibration:
 - ✍️ Write **imperative instructions** - "Always do X" or "Never do Y"
 - 🔄 **Check `/calibrate status`** regularly to see accumulated patterns
 - 🚀 After promoting Skills, **restart Claude Code** to load them
+- 🤖 **Auto-detection** records patterns automatically when fixing errors - no manual `/calibrate` needed
+- ⚙️ Use `/calibrate auto off` if you prefer **manual-only** recording
 
 ## Installation
 
@@ -185,41 +201,71 @@ Creates the Calibrator database and directory structure.
 
 **What it creates:**
 - `.claude/calibrator/patterns.db` - SQLite database
-- `.claude/skills/learned/` - Directory for promoted Skills
+- `.claude/skills/` - Directory for promoted Skills
 - Adds entries to `.gitignore` (for Git projects)
 
 **Flow:**
 
-1. **New Installation:**
-   ```
-   ⚙️ Calibrator Initialization
+1. **Confirmation:**
+   - "Initialize Calibrator?" → [Yes, initialize] [Cancel]
 
-   Files to create:
-   - .claude/calibrator/patterns.db
+2. **Auto-Detection Option:**
+   - "Enable automatic pattern detection?" → [Yes (Recommended)] [No]
+   - When enabled: Patterns are automatically recorded when fixing lint/type/build/test errors
 
-   [Confirm] [Cancel]
-   ```
+3. **If Already Exists:**
+   - "Calibrator already exists" → [Keep] [Reinitialize (delete data)]
 
-2. **If Already Exists:**
-   ```
-   ⚠️ Calibrator already exists
-
-   Current files:
-   - .claude/calibrator/patterns.db
-
-   [Keep] [Reinitialize (delete data)]
-   ```
-
-3. **Completion:**
+4. **Completion:**
    ```
    ✅ Calibrator initialization complete
 
    - .claude/calibrator/patterns.db created
-   - .claude/skills/learned/ directory created
+   - .claude/skills/ directory created
    - .gitignore updated (if Git project)
+   - Auto pattern detection: enabled
 
    You can now record mismatches with /calibrate.
+   Patterns will also be recorded automatically when fixing errors.
    ```
+
+</details>
+
+---
+
+### Toggle Auto-Detection
+
+```bash
+/calibrate auto [on|off]
+```
+
+Enable or disable automatic pattern detection.
+
+<details>
+<summary>📖 Detailed Usage</summary>
+
+**Commands:**
+
+| Command | Description |
+|---------|-------------|
+| `/calibrate auto on` | Enable auto-detection (default) |
+| `/calibrate auto off` | Disable auto-detection |
+| `/calibrate auto` | Show current status |
+
+**When enabled, patterns are automatically recorded when fixing:**
+- Lint errors (ESLint, Prettier, Biome, etc.)
+- Type errors (TypeScript, Flow, etc.)
+- Build errors (Webpack, Vite, esbuild, etc.)
+- Test failures (Jest, Vitest, pytest, etc.)
+
+**Auto-detection notification:**
+```
+┌─ 🔄 Auto-Calibrate ──────────────────────────────┐
+│ Recorded: "TypeScript async/await handling"      │
+│ Category: missing | Occurrences: 2               │
+└──────────────────────────────────────────────────┘
+💡 Pattern repeated 2x → /calibrate review to promote to skill
+```
 
 </details>
 
@@ -429,14 +475,12 @@ Data to delete:
 - {count} observations
 - {count} patterns
 
-Note: Generated Skills (.claude/skills/learned/) will be preserved.
-
-Really reset? Type "reset" to confirm: _
+Note: Generated Skills (.claude/skills/) will be preserved.
 ```
 
 **Step 2: Confirmation**
-- Type `reset` to proceed
-- Any other input cancels the operation
+- "Are you sure you want to delete all Calibrator data?"
+- [Yes, reset all data] [Cancel]
 
 **Step 3: Result**
 ```
@@ -444,7 +488,7 @@ Really reset? Type "reset" to confirm: _
 
 - Observations: all deleted
 - Patterns: all deleted
-- Skills: preserved (.claude/skills/learned/)
+- Skills: preserved (.claude/skills/)
 
 Start new records with /calibrate.
 ```
@@ -463,7 +507,8 @@ Start new records with /calibrate.
 | File | Purpose |
 |------|---------|
 | `.claude/calibrator/patterns.db` | SQLite DB (`observations`, `patterns`, `schema_version` tables) |
-| `.claude/skills/learned/*/SKILL.md` | Promoted Skills |
+| `.claude/calibrator/auto-detect.enabled` | Flag file for auto-detection (exists = enabled) |
+| `.claude/skills/*/SKILL.md` | Promoted Skills |
 
 ## Security Considerations
 
@@ -491,7 +536,7 @@ Start new records with /calibrate.
 
 **Skills not being applied**
 - Ensure the skill was properly promoted (check `/calibrate status`)
-- Verify the skill file exists in `.claude/skills/learned/`
+- Verify the skill file exists in `.claude/skills/`
 
 ## Requirements
 
