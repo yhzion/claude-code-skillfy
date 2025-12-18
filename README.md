@@ -2,7 +2,9 @@
 
 ![macOS: compatible](https://img.shields.io/badge/macOS-compatible-brightgreen?style=for-the-badge&logo=apple&logoColor=white)
 ![Linux: compatible](https://img.shields.io/badge/Linux-compatible-brightgreen?style=for-the-badge&logo=linux&logoColor=white)
-![Windows: coming soon](https://img.shields.io/badge/Windows-coming%20soon-yellow?style=for-the-badge&logo=windows&logoColor=white)
+![Windows: use WSL](https://img.shields.io/badge/Windows-use%20WSL-blue?style=for-the-badge&logo=windows&logoColor=white)
+
+> **Windows Users**: Use [WSL (Windows Subsystem for Linux)](https://learn.microsoft.com/en-us/windows/wsl/install) to run Skillfy.
 
 Turn your corrections into reusable Claude Code Skills.
 
@@ -25,21 +27,21 @@ Claude automatically applies the rule going forward
 First, add the plugin to your local marketplace, and then install it:
 ```bash
 /plugin marketplace add https://github.com/yhzion/claude-code-skillfy.git
-/plugin install skillfy@yhzion-claude-code-skillfy
+/plugin install skillfy@claude-code-skillfy
 ```
 
 ### Update
 
 ```bash
-/plugin marketplace update yhzion-claude-code-skillfy
+/plugin marketplace update claude-code-skillfy
 ```
 
 ### Uninstall
 
 To completely remove the plugin, first uninstall it and then remove it from the marketplace:
 ```bash
-/plugin uninstall skillfy@yhzion-claude-code-skillfy
-/plugin marketplace remove yhzion-claude-code-skillfy
+/plugin uninstall skillfy@claude-code-skillfy
+/plugin marketplace remove claude-code-skillfy
 ```
 
 ## Usage
@@ -51,6 +53,8 @@ To completely remove the plugin, first uninstall it and then remove it from the 
 ```
 
 Creates the Skillfy database and directory structure.
+
+> **Note**: Skillfy installs in your Git repository root, or the current directory if not in a Git repository.
 
 <details>
 <summary>📖 Detailed Usage</summary>
@@ -67,16 +71,18 @@ Creates the Skillfy database and directory structure.
 
 2. **If Already Exists:**
    - "Skillfy already exists" → [Keep] [Reinitialize (delete data)]
+   - Note: Schema upgrades are handled via reinitialization. There is no in-place migration; back up your data if needed.
 
 3. **Completion:**
    ```
-   ✅ Skillfy initialization complete
+   Skillfy initialization complete
 
    - .claude/skillfy/patterns.db created
    - .claude/skills/ directory created
    - .gitignore updated (if Git project)
 
    You can now record mismatches with /skillfy.
+   Use /skillfy review to promote saved patterns to skills.
    ```
 
 </details>
@@ -94,7 +100,9 @@ Record patterns when Claude generates something different from your expectations
 <details>
 <summary>📖 Detailed Usage</summary>
 
-**Step 1: Situation Selection**
+> **Smart Suggestions**: Claude analyzes your current session context and dynamically suggests relevant options at each step. You can always choose "Enter manually" if the suggestions don't match your needs.
+
+**Step 1: Situation Selection** (max 500 chars)
 
 Claude analyzes the current session and suggests relevant situations:
 ```
@@ -102,23 +110,37 @@ Recording Pattern Mismatch
 
 What situation did this happen in?
 
-1. {Suggested situation from context}
-2. {Another suggestion}
+1. {Suggested situation from context analysis}
+2. {Another suggestion based on recent errors/corrections}
 3. Enter manually
 
 Select:
 ```
 
-**Step 2: Expectation Input**
+**Step 2: Expectation Selection** (max 1000 chars)
+
+Claude suggests expectations based on the selected situation:
 ```
-What did you expect? (max 1000 chars)
-Example: "Include timestamp field", "Use TypeScript interfaces"
+What did you expect?
+
+1. {Suggested expectation based on situation}
+2. {Another relevant expectation}
+3. Enter manually
+
+Select:
 ```
 
-**Step 3: Instruction Input**
+**Step 3: Instruction Selection** (max 2000 chars)
+
+Claude suggests actionable instructions:
 ```
-What rule should Claude learn? (imperative form, max 2000 chars)
-Example: "Always include timestamp fields", "Never use var in JavaScript"
+What rule should Claude learn? (imperative form)
+
+1. {Suggested instruction - e.g., "Always include timestamp fields"}
+2. {Another instruction option}
+3. Enter manually
+
+Select:
 ```
 
 **Step 4: Action Selection**
@@ -182,6 +204,21 @@ learned_from: skillfy ({created_at})
 
 - {situation}
 
+## Examples
+
+### Do
+
+(Add positive examples here)
+
+### Don't
+
+(Add negative examples here)
+
+## Learning History
+
+- Created: {created_at}
+- Source: Manual recording via /skillfy
+
 ---
 
 [Save] [Edit] [Skip]
@@ -215,7 +252,7 @@ Display available commands and current status.
 ```
 📚 Skillfy Help
 
-Status: ✅ Initialized | Patterns: {count} | Skills: {count}
+Status: ✅ Initialized | Patterns: {count} | Skills: {count} | Pending: {count}
 
 Commands:
   /skillfy init      Initialize Skillfy
@@ -246,6 +283,7 @@ Quick Start:
 **Options:**
 - `/skillfy reset` - Delete database records only (skills preserved)
 - `/skillfy reset --all` - Delete everything including skills
+  > ⚠️ **Warning**: This deletes the entire `.claude/skills/` directory, including any non-Skillfy skills. Back up important skills before using this option.
 
 **Step 1: Current Status**
 ```
@@ -276,11 +314,15 @@ Start new records with /skillfy.
 
 </details>
 
-## Example: Teaching Claude Your Preferences
+## Examples
+
+Two common scenarios to learn how to use Skillfy.
+
+### Example 1: Code Style Preference
 
 Let's walk through a real scenario from start to finish.
 
-### 😤 The Problem
+#### 😤 The Problem
 
 You ask Claude to create a React component:
 
@@ -299,7 +341,7 @@ const Button = ({ label, onClick }) => {
 
 ---
 
-### 📝 Step 1: Record the Mismatch
+#### 📝 Step 1: Record the Mismatch
 
 Run `/skillfy` right after the mismatch:
 
@@ -321,7 +363,7 @@ Result:
 
 ---
 
-### ✨ Step 2: Result
+#### ✨ Step 2: Result
 
 **Restart Claude Code**, then ask the same question:
 
@@ -342,6 +384,97 @@ const Button = ({ label, onClick }: ButtonProps) => {
 ```
 
 🎉 **Claude learned your preference and applies it automatically!**
+
+---
+
+### Example 2: Workflow Behavior Preference
+
+Learn how to teach Claude when to act automatically vs. ask for confirmation.
+
+#### 😤 The Problem
+
+You ask Claude to check code quality:
+
+```
+> Check lint and format
+```
+
+Claude finds issues and asks:
+```
+Found issues:
+
+| Check    | Status                           |
+|----------|----------------------------------|
+| ESLint   | ⚠️ 1 warning                     |
+| Prettier | ❌ 2 files need formatting       |
+
+Would you like me to fix these issues?
+```
+
+**But you wanted Claude to just fix them!** You don't want to be asked every time...
+
+---
+
+#### 📝 Step 1: Record the Mismatch
+
+Run `/skillfy` right after the mismatch:
+
+```
+Situation: > When checking lint/format
+Expected: > Auto-fix issues without asking and fix first, then report
+Instruction: > Fix without asking, report after
+
+What would you like to do?
+> 1. Register as Skill
+```
+
+Result:
+```
+✅ Skill created: .claude/skills/when-checking-lintformat/SKILL.md
+
+🔄 Restart Claude Code to activate this skill.
+```
+
+---
+
+#### ✨ Step 2: Result
+
+**Restart Claude Code**, then ask the same question:
+
+```
+> Check lint and format
+```
+
+Now Claude responds:
+```
+The skill instructs me to fix without asking. Let me fix these issues now.
+
+✅ All issues fixed:
+
+| Check    | Result                                         |
+|----------|------------------------------------------------|
+| Prettier | ✅ 2 files formatted (App.vue, HelloWorld.vue) |
+| ESLint   | ✅ 0 errors, 0 warnings                        |
+
+Changes made:
+- src/App.vue — formatting fixed
+- src/components/HelloWorld.vue — formatting fixed + added default value
+```
+
+🎉 **Claude learned your workflow preference and acts without asking!**
+
+---
+
+#### ⚠️ Note: Skill Activation
+
+Skills may not always trigger automatically. If Claude doesn't apply the skill:
+
+1. **Improve the description** - Make the skill's `description` field more specific
+2. **Manual invocation** - You can explicitly invoke it:
+   ```
+   > Check lint and format. Use skill: when-checking-lintformat
+   ```
+3. **Check skill loading** - Run `/skillfy help` to verify the skill is recognized
 
 ---
 
@@ -381,16 +514,35 @@ The recommended workflow:
 | `.claude/skillfy/patterns.db` | SQLite DB (`patterns`, `schema_version` tables) |
 | `.claude/skills/*/SKILL.md` | Promoted Skills |
 
+### Skill Naming Rules
+
+When a skill is created, the name is automatically generated from the situation:
+
+| Rule | Example |
+|------|---------|
+| Convert to lowercase | "Creating Models" → "creating-models" |
+| Replace spaces with hyphens | "API endpoint" → "api-endpoint" |
+| Remove special characters | "React (TSX)" → "react-tsx" |
+| Maximum 50 characters | Truncated if longer |
+| Collision handling | Adds suffix: `-1`, `-2`, etc. |
+
 ## Security Considerations
 
 ### Data Privacy
 - **patterns.db may contain sensitive data**: The database stores situations and expectations you record. Be mindful of what information you include.
 - **Automatic .gitignore**: The init command automatically adds `.claude/skillfy/` to `.gitignore` to prevent accidental commits.
+- **Review skill files before committing**: Generated skills in `.claude/skills/` are NOT gitignored. Review them for sensitive context before committing to version control.
 - **Backup exclusions**: Consider excluding `.claude/skillfy/` from cloud sync services if it contains sensitive information.
 
 ### File Permissions
-- Ensure `.claude/` directory is not world-readable if it contains sensitive patterns
-- The database file should only be accessible by your user account
+
+Secure permissions are **automatically set** during initialization:
+
+| Path | Permission | Description |
+|------|------------|-------------|
+| `.claude/skillfy/` | `700` (rwx------) | Owner only: read, write, execute |
+| `.claude/skills/` | `700` (rwx------) | Owner only: read, write, execute |
+| `patterns.db` | `600` (rw-------) | Owner only: read, write |
 
 ### Input Validation
 - SQL injection is prevented through quote escaping
@@ -413,7 +565,8 @@ The recommended workflow:
 
 - Claude Code
 - sqlite3 CLI (pre-installed on macOS/Linux)
-- SQLite version 3.24.0+ (for UPSERT support)
+- SQLite version 3.24.0+ (for improved performance and compatibility)
+- `realpath` or `python3` (for path resolution in review command; typically pre-installed)
 
 ## License
 

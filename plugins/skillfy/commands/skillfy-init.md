@@ -93,9 +93,9 @@ mkdir -p "$PROJECT_ROOT/.claude/skills"
 chmod 700 "$PROJECT_ROOT/.claude/skillfy"           # Owner only: rwx
 chmod 700 "$PROJECT_ROOT/.claude/skills"            # Owner only: rwx
 
-# Create DB with inline schema (v2.0)
+# Create DB with inline schema (v1.0)
 if ! sqlite3 "$PROJECT_ROOT/.claude/skillfy/patterns.db" <<'SCHEMA_EOF'
--- Skillfy SQLite Schema v2.0
+-- Skillfy SQLite Schema v1.0
 
 -- Patterns table: User memos for skill promotion
 -- No UNIQUE constraint - allows duplicate entries (memo purpose)
@@ -106,8 +106,7 @@ CREATE TABLE IF NOT EXISTS patterns (
   instruction TEXT NOT NULL CHECK(length(instruction) <= 2000),
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
   promoted    INTEGER NOT NULL DEFAULT 0 CHECK(promoted IN (0, 1)),
-  skill_path  TEXT,
-  notes       TEXT
+  skill_path  TEXT
 );
 
 -- Schema version tracking
@@ -117,7 +116,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
 );
 
 -- Insert current schema version
-INSERT OR IGNORE INTO schema_version (version) VALUES ('2.0');
+INSERT OR IGNORE INTO schema_version (version) VALUES ('1.0');
 
 -- Performance indexes
 CREATE INDEX IF NOT EXISTS idx_patterns_promoted ON patterns(promoted);
@@ -177,60 +176,10 @@ fi
 
 ### Step 3: When Already Exists
 
-If `.claude/skillfy` directory exists (from Step 1):
+If `.claude/skillfy` directory exists (from Step 1), display:
 
-**Step 3-A: Check Schema Version**
-```bash
-DB_PATH="$PROJECT_ROOT/.claude/skillfy/patterns.db"
-CURRENT_VERSION=""
-NEEDS_MIGRATION="no"
-
-if [ -f "$DB_PATH" ]; then
-  # Get current schema version
-  CURRENT_VERSION=$(sqlite3 "$DB_PATH" "SELECT version FROM schema_version ORDER BY applied_at DESC LIMIT 1;" 2>/dev/null || echo "")
-
-  # If no version found, assume 1.0 (pre-versioning)
-  if [ -z "$CURRENT_VERSION" ]; then
-    CURRENT_VERSION="1.0"
-  fi
-
-  # Check if migration is needed (target: 2.0)
-  case "$CURRENT_VERSION" in
-    2.0) NEEDS_MIGRATION="no" ;;
-    *) NEEDS_MIGRATION="yes" ;;
-  esac
-fi
 ```
-
-**Step 3-B: Display Options Based on Migration Status**
-
-If `NEEDS_MIGRATION="yes"`, display:
-```
-Skillfy already exists (schema v{CURRENT_VERSION})
-
-A database upgrade is available (v{CURRENT_VERSION} -> v2.0).
-
-Changes in v2.0:
-- Simplified schema (memo-focused)
-- Removed auto-detection features
-- Removed count/threshold system
-
-Options:
-1. Upgrade database - Migrate to v2.0 (preserves pattern data)
-2. Keep as-is - Exit without changes (some features may not work)
-3. Reinitialize - Delete all data and start fresh with v2.0
-
-Select option (1/2/3):
-```
-
-Wait for user response:
-- User responds "1" or "upgrade" → Execute migration (Step 3-C)
-- User responds "2" or "keep" → Exit with message: "Keeping existing installation. Note: Some features may not work with older schema."
-- User responds "3" or "reinitialize" → Execute cleanup and proceed to Step 2
-
-If `NEEDS_MIGRATION="no"` (already at v2.0), display:
-```
-Skillfy already exists (schema v2.0 - up to date)
+Skillfy already exists
 
 Current files:
 - .claude/skillfy/patterns.db
@@ -246,66 +195,7 @@ Wait for user response:
 - User responds "1" or "keep" → Exit with message: "Keeping existing installation."
 - User responds "2" or "reinitialize" → Execute cleanup and proceed to Step 2
 
-**Step 3-C: Execute Migration (v1.x -> v2.0)**
-```bash
-echo "Migrating database schema to v2.0..."
-
-# Create new patterns table with v2.0 schema
-sqlite3 "$DB_PATH" <<'MIGRATION_EOF'
--- Create new patterns table
-CREATE TABLE IF NOT EXISTS patterns_v2 (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  situation   TEXT NOT NULL CHECK(length(situation) <= 500),
-  expectation TEXT CHECK(length(expectation) <= 1000),
-  instruction TEXT NOT NULL CHECK(length(instruction) <= 2000),
-  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-  promoted    INTEGER NOT NULL DEFAULT 0 CHECK(promoted IN (0, 1)),
-  skill_path  TEXT,
-  notes       TEXT
-);
-
--- Migrate existing data (only situation, instruction, promoted, skill_path)
-INSERT INTO patterns_v2 (situation, instruction, created_at, promoted, skill_path)
-SELECT situation, instruction, first_seen, promoted, skill_path
-FROM patterns WHERE 1=1;
-
--- Drop old tables
-DROP TABLE IF EXISTS patterns;
-DROP TABLE IF EXISTS observations;
-
--- Rename new table
-ALTER TABLE patterns_v2 RENAME TO patterns;
-
--- Drop old indexes (they reference dropped columns)
-DROP INDEX IF EXISTS idx_observations_situation;
-DROP INDEX IF EXISTS idx_observations_timestamp;
-DROP INDEX IF EXISTS idx_patterns_count;
-DROP INDEX IF EXISTS idx_patterns_dismissed;
-DROP INDEX IF EXISTS idx_patterns_situation_instruction;
-DROP INDEX IF EXISTS idx_patterns_review;
-
--- Create new indexes
-CREATE INDEX IF NOT EXISTS idx_patterns_promoted ON patterns(promoted);
-CREATE INDEX IF NOT EXISTS idx_patterns_created_at ON patterns(created_at DESC);
-
--- Update schema version
-INSERT OR REPLACE INTO schema_version (version) VALUES ('2.0');
-MIGRATION_EOF
-
-if [ $? -ne 0 ]; then
-  echo "Error: Migration failed"
-  exit 1
-fi
-
-# Remove auto-detect flag file (no longer used)
-rm -f "$PROJECT_ROOT/.claude/skillfy/auto-detect.enabled"
-
-echo "Database migrated to schema v2.0"
-```
-
-After successful migration, display completion message and exit.
-
-**Step 3-D: Reinitialize (cleanup)**
+**Step 3-A: Reinitialize (cleanup)**
 ```bash
 rm -rf "$PROJECT_ROOT/.claude/skillfy"
 echo "Existing data removed"

@@ -76,7 +76,7 @@ run_query() {
 
 TOTAL_PATTERNS=$(run_query "SELECT COUNT(*) FROM patterns;")
 PROMOTED=$(run_query "SELECT COUNT(*) FROM patterns WHERE promoted = 1;")
-PENDING=$(run_query "SELECT COUNT(*) FROM patterns WHERE count >= 2 AND promoted = 0;")
+PENDING=$(run_query "SELECT COUNT(*) FROM patterns WHERE promoted = 0;")
 ```
 
 ### Step 3: Display Full Help

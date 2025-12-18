@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Plugin name: `calibrator` → `skillfy`
   - Commands: `/calibrate` → `/skillfy`
   - Data folder: `.claude/calibrator/` → `.claude/skillfy/`
-  - Marketplace ID: `yhzion-claude-code-calibrator` → `yhzion-skillfy`
+  - Marketplace ID: `yhzion-claude-code-calibrator` → `claude-code-skillfy`
 - Simplified workflow: record → save/promote → apply
 - `.gitignore` entries now use `.claude/skillfy/`
 
