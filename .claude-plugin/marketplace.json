@@ -1,22 +1,22 @@
 {
-  "name": "yhzion-claude-code-calibrator",
+  "name": "yhzion-skillfy",
   "owner": {
     "name": "yhzion",
     "email": "yhzion@gmail.com"
   },
   "metadata": {
-    "description": "Claude Code expectation mismatch correction plugin. Records recurring output mismatches and auto-promotes them to Skills.",
-    "version": "0.1.0",
-    "repository": "https://github.com/yhzion/claude-code-calibrator"
+    "description": "Claude Code skill builder plugin. Turn your corrections into reusable Skills.",
+    "version": "1.0.0",
+    "repository": "https://github.com/yhzion/claude-code-skillfy"
   },
   "plugins": [
     {
-      "name": "calibrator",
-      "version": "0.1.0",
-      "source": "./plugins/calibrator",
-      "description": "Claude Code expectation mismatch correction - Pattern recording and Skill promotion",
+      "name": "skillfy",
+      "version": "1.0.0",
+      "source": "./plugins/skillfy",
+      "description": "Turn your corrections into reusable Claude Code Skills",
       "category": "productivity",
-      "tags": ["learning", "calibration", "skills", "pattern"]
+      "tags": ["learning", "skills", "pattern", "productivity"]
     }
   ]
 }

@@ -1,45 +1,45 @@
-# Claude Code Calibrator
+# Skillfy
 
 ![macOS: compatible](https://img.shields.io/badge/macOS-compatible-brightgreen?style=for-the-badge&logo=apple&logoColor=white)
 ![Linux: compatible](https://img.shields.io/badge/Linux-compatible-brightgreen?style=for-the-badge&logo=linux&logoColor=white)
 ![Windows: coming soon](https://img.shields.io/badge/Windows-coming%20soon-yellow?style=for-the-badge&logo=windows&logoColor=white)
 
-Teach Claude once, apply automatically.
+Turn your corrections into reusable Claude Code Skills.
 
-A Claude Code plugin that learns from your corrections and applies them consistently.
+A Claude Code plugin that transforms your feedback into persistent learning.
 
 ## Core Concept
 
 ```
-User requests Claude to correct output
+User corrects Claude's output
        ↓
-Record mismatch with /calibrate
+Record with /skillfy
        ↓
-Same pattern repeats 2+ times
+Promote to Skill with /skillfy review
        ↓
-Promote to Skill with /calibrate review
-       ↓
-Claude automatically applies pattern going forward
+Claude automatically applies the rule going forward
 ```
 
 ## Installation
+
 First, add the plugin to your local marketplace, and then install it:
 ```bash
-/plugin marketplace add yhzion/claude-code-calibrator
-/plugin install calibrator@yhzion-claude-code-calibrator
+/plugin marketplace add yhzion/skillfy
+/plugin install skillfy@yhzion-skillfy
 ```
 
 ### Update
 
 ```bash
-/plugin marketplace update yhzion-claude-code-calibrator
+/plugin marketplace update yhzion-skillfy
 ```
 
 ### Uninstall
+
 To completely remove the plugin, first uninstall it and then remove it from the marketplace:
 ```bash
-/plugin uninstall calibrator@yhzion-claude-code-calibrator
-/plugin marketplace remove yhzion-claude-code-calibrator
+/plugin uninstall skillfy@yhzion-skillfy
+/plugin marketplace remove yhzion-skillfy
 ```
 
 ## Usage
@@ -47,36 +47,36 @@ To completely remove the plugin, first uninstall it and then remove it from the 
 ### Initialize
 
 ```bash
-/calibrate init
+/skillfy init
 ```
 
-Creates the Calibrator database and directory structure.
+Creates the Skillfy database and directory structure.
 
 <details>
 <summary>📖 Detailed Usage</summary>
 
 **What it creates:**
-- `.claude/calibrator/patterns.db` - SQLite database
+- `.claude/skillfy/patterns.db` - SQLite database
 - `.claude/skills/` - Directory for promoted Skills
 - Adds entries to `.gitignore` (for Git projects)
 
 **Flow:**
 
 1. **Confirmation:**
-   - "Initialize Calibrator?" → [Yes, initialize] [Cancel]
+   - "Initialize Skillfy?" → [Yes, initialize] [Cancel]
 
 2. **If Already Exists:**
-   - "Calibrator already exists" → [Keep] [Reinitialize (delete data)]
+   - "Skillfy already exists" → [Keep] [Reinitialize (delete data)]
 
 3. **Completion:**
    ```
-   ✅ Calibrator initialization complete
+   ✅ Skillfy initialization complete
 
-   - .claude/calibrator/patterns.db created
+   - .claude/skillfy/patterns.db created
    - .claude/skills/ directory created
    - .gitignore updated (if Git project)
 
-   You can now record mismatches with /calibrate.
+   You can now record mismatches with /skillfy.
    ```
 
 </details>
@@ -86,7 +86,7 @@ Creates the Calibrator database and directory structure.
 ### Record Mismatches
 
 ```bash
-/calibrate
+/skillfy
 ```
 
 Record patterns when Claude generates something different from your expectations.
@@ -94,53 +94,48 @@ Record patterns when Claude generates something different from your expectations
 <details>
 <summary>📖 Detailed Usage</summary>
 
-**Step 1: Category Selection**
+**Step 1: Situation Selection**
+
+Claude analyzes the current session and suggests relevant situations:
 ```
-What kind of mismatch just happened?
+Recording Pattern Mismatch
 
-1. Something was missing
-2. There was something unnecessary
-3. I wanted a different approach
-4. Let me explain
-```
+What situation did this happen in?
 
-| Choice | Category |
-|--------|----------|
-| 1 | `missing` |
-| 2 | `excess` |
-| 3 | `style` |
-| 4 | `other` |
+1. {Suggested situation from context}
+2. {Another suggestion}
+3. Enter manually
 
-**Step 2: Input Details**
-```
-In what situation, and what did you expect?
-Example: "When creating a model, include timestamp field"
-
-Situation: [your input]
-Expected: [your input]
-Instruction (imperative rule to learn): [your input]
+Select:
 ```
 
-| Field | Description | Max Length |
-|-------|-------------|------------|
-| Situation | When does this apply? | 500 chars |
-| Expected | What did you expect? | 1000 chars |
-| Instruction | Rule for Claude to learn | 2000 chars |
-
-**Step 3: Confirmation**
+**Step 2: Expectation Input**
 ```
-✅ Record complete
+What did you expect? (max 1000 chars)
+Example: "Include timestamp field", "Use TypeScript interfaces"
+```
+
+**Step 3: Instruction Input**
+```
+What rule should Claude learn? (imperative form, max 2000 chars)
+Example: "Always include timestamp fields", "Never use var in JavaScript"
+```
+
+**Step 4: Action Selection**
+```
+Record Summary
 
 Situation: {situation}
 Expected: {expectation}
 Instruction: {instruction}
 
-Same pattern accumulated {count} times
-```
+What would you like to do?
 
-If the pattern repeats 2+ times:
-```
-💡 You can promote this to a Skill with /calibrate review.
+1. Register as Skill - Create skill file immediately
+2. Save as memo - Store in DB for later review
+3. Cancel
+
+Select:
 ```
 
 </details>
@@ -150,40 +145,33 @@ If the pattern repeats 2+ times:
 ### Review & Promote to Skills
 
 ```bash
-/calibrate review
+/skillfy review
 ```
 
-Promote patterns that have repeated 2+ times to Skills.
+Review saved patterns and promote them to Skills.
 
 <details>
 <summary>📖 Detailed Usage</summary>
 
-**Step 1: View Candidates**
+**Step 1: View Saved Patterns**
 ```
-📊 Skill Promotion Candidates (2+ repetitions)
+Saved Patterns (not yet promoted)
 
-[id=12] Model creation → Always include timestamp fields (3 times)
-[id=15] API endpoint → Always include error handling (2 times)
+[id=12] When creating models → Always include timestamp fields (2024-12-18)
+[id=15] When writing API endpoints → Always include error handling (2024-12-17)
 
-Enter pattern id(s) to promote (comma-separated for multiple): _
-```
-
-If no candidates:
-```
-📊 No patterns available for promotion
-
-Patterns need to repeat 2+ times to be promoted to a Skill.
-Keep recording with /calibrate.
+Enter pattern id(s) to promote (comma-separated for multiple, or 'skip' to cancel):
+Example: 12 or 12,15
 ```
 
 **Step 2: Skill Preview**
 ```
-📝 Skill Preview: {situation}
+Skill Preview: {situation}
 
 ---
 name: {kebab-case situation}
 description: {instruction}. Auto-applied in {situation} situations.
-learned_from: calibrator ({count} repetitions, {first_seen} ~ {last_seen})
+learned_from: skillfy ({created_at})
 ---
 
 ## Rules
@@ -193,13 +181,6 @@ learned_from: calibrator ({count} repetitions, {first_seen} ~ {last_seen})
 ## Applies to
 
 - {situation}
-
-## Learning History
-
-This Skill was auto-generated by Calibrator.
-- First detected: {first_seen}
-- Last detected: {last_seen}
-- Repetitions: {count}
 
 ---
 
@@ -212,151 +193,8 @@ This Skill was auto-generated by Calibrator.
 
 - .claude/skills/{skill-name}/SKILL.md
 
-🔄 To activate this Skill, start a new Claude Code session.
-   (Skills are loaded at session start)
-
-Claude will then automatically apply this rule in "{situation}" situations.
+🔄 Restart Claude Code to activate this skill.
 ```
-
-</details>
-
----
-
-### View Statistics
-
-```bash
-/calibrate status
-```
-
-View currently recorded patterns and statistics.
-
-<details>
-<summary>📖 Detailed Usage</summary>
-
-**Output:**
-```
-📊 Calibrator Status
-
-Total observations: {count}
-Detected patterns: {count}
-├─ Promoted to Skills: {count}
-└─ Pending promotion (2+): {count}
-
-Recent records:
-- [{timestamp}] {category}: {situation}
-- [{timestamp}] {category}: {situation}
-- [{timestamp}] {category}: {situation}
-```
-
-If pending patterns exist:
-```
-💡 Run /calibrate review to promote pending patterns to Skills.
-```
-
-If no data recorded:
-```
-📊 Calibrator Status
-
-No data recorded yet.
-Record your first mismatch with /calibrate.
-```
-
-</details>
-
----
-
-### Edit Skills & Merge Patterns
-
-```bash
-/calibrate refactor-skills
-```
-
-Edit existing Skills, merge similar patterns, or remove duplicates.
-
-<details>
-<summary>📖 Detailed Usage</summary>
-
-**Mode Selection:**
-```
-🔧 Calibrator Refactor
-
-What would you like to do?
-
-1. Edit Skill - Modify instruction or situation of existing Skills
-2. Merge patterns - Combine similar patterns (same situation)
-3. Remove duplicates - Delete exact duplicate patterns
-
-Select mode (1/2/3):
-```
-
-**Mode 1: Edit Skill**
-- View all promoted Skills
-- Select a Skill to edit by ID
-- Modify situation, instruction, or both
-- Updates both database and SKILL.md file
-
-**Mode 2: Merge Patterns**
-- Find patterns with same situation but different instructions
-- Select patterns to merge
-- Choose primary instruction to keep
-- Combines counts from merged patterns
-
-**Mode 3: Remove Duplicates**
-- Detects exact duplicate patterns
-- Cleans up database integrity issues
-- Keeps one copy of each unique pattern
-
-</details>
-
----
-
-### Delete Skills
-
-```bash
-/calibrate delete
-```
-
-Delete promoted Skills (multi-select support).
-
-<details>
-<summary>📖 Detailed Usage</summary>
-
-**Step 1: View Promoted Skills**
-```
-🗑️ Delete Promoted Skills
-
-Select Skills to delete (pattern data will be preserved, only SKILL.md files will be removed):
-
-[id=1] Creating React components → Always define TypeScript interface (3 times)
-       Path: .claude/skills/creating-react-components
-[id=5] API endpoints → Always include error handling (5 times)
-       Path: .claude/skills/api-endpoints
-
-Enter skill id(s) to delete (comma-separated for multiple, or 'skip' to cancel):
-Example: 1 or 1,5
-```
-
-**Step 2: Confirmation**
-- "Are you sure you want to delete these Skills?"
-- [Yes, delete selected Skills] [Cancel]
-
-**Step 3: Result**
-```
-✅ Skill deletion complete
-
-- Deleted: 2 skill(s)
-- Failed: 0 skill(s)
-
-Pattern data has been preserved. You can re-promote patterns with /calibrate review.
-
-🔄 Restart Claude Code session to apply changes.
-```
-
-**What happens:**
-- SKILL.md file: Deleted
-- Skill directory: Preserved (empty directory remains)
-- Database pattern: Preserved with `promoted = 0`
-- Pattern count: Preserved (can be re-promoted later)
 
 </details>
 
@@ -365,7 +203,7 @@ Pattern data has been preserved. You can re-promote patterns with /calibrate rev
 ### Show Help
 
 ```bash
-/calibrate help
+/skillfy help
 ```
 
 Display available commands and current status.
@@ -375,22 +213,19 @@ Display available commands and current status.
 
 **Output (when initialized):**
 ```
-📚 Calibrator Help
+📚 Skillfy Help
 
-Status: ✅ Initialized | Patterns: {count} | Skills: {count} | Pending: {count}
+Status: ✅ Initialized | Patterns: {count} | Skills: {count}
 
 Commands:
-  /calibrate init      Initialize Calibrator
-  /calibrate           Record an expectation mismatch
-  /calibrate status    View statistics
-  /calibrate review    Promote patterns to Skills
-  /calibrate refactor-skills  Edit Skills and merge patterns
-  /calibrate delete    Delete promoted Skills
-  /calibrate reset     Delete all data
-  /calibrate help      Show this help
+  /skillfy init      Initialize Skillfy
+  /skillfy           Record an expectation mismatch
+  /skillfy review    Promote patterns to Skills
+  /skillfy reset     Delete all data
+  /skillfy help      Show this help
 
 Quick Start:
-  1. /calibrate init → 2. /calibrate → 3. /calibrate review
+  1. /skillfy init → 2. /skillfy → 3. /skillfy review
 ```
 
 </details>
@@ -400,41 +235,43 @@ Quick Start:
 ### Reset Data
 
 ```bash
-/calibrate reset
+/skillfy reset
 ```
 
-⚠️ Deletes all observation records and patterns. Generated Skills are preserved.
+⚠️ Deletes all pattern records. Generated Skills are preserved.
 
 <details>
 <summary>📖 Detailed Usage</summary>
 
+**Options:**
+- `/skillfy reset` - Delete database records only (skills preserved)
+- `/skillfy reset --all` - Delete everything including skills
+
 **Step 1: Current Status**
 ```
-⚠️ Calibrator Reset
+⚠️ Skillfy Reset
 
 Database file:
 - {DB_PATH}
 
 Data to delete:
-- {count} observations
 - {count} patterns
 
 Note: Generated Skills (.claude/skills/) will be preserved.
 ```
 
 **Step 2: Confirmation**
-- "Are you sure you want to delete all Calibrator data?"
+- "Are you sure you want to delete all Skillfy data?"
 - [Yes, reset all data] [Cancel]
 
 **Step 3: Result**
 ```
-✅ Calibrator data has been reset
+✅ Skillfy data has been reset
 
-- Observations: all deleted
 - Patterns: all deleted
 - Skills: preserved (.claude/skills/)
 
-Start new records with /calibrate.
+Start new records with /skillfy.
 ```
 
 </details>
@@ -464,63 +301,27 @@ const Button = ({ label, onClick }) => {
 
 ### 📝 Step 1: Record the Mismatch
 
-Run `/calibrate` right after the mismatch:
+Run `/skillfy` right after the mismatch:
 
 ```
-What kind of mismatch just happened?
-> 1. Something was missing
-
 Situation: > Creating React components
 Expected: > TypeScript interface for props
 Instruction: > Always define a TypeScript interface for component props
+
+What would you like to do?
+> 1. Register as Skill
 ```
 
 Result:
 ```
-✅ Record complete
-Same pattern accumulated 1 times
-```
-
----
-
-### 🔄 Step 2: Pattern Repeats
-
-A few days later, same thing happens with a Modal component. Run `/calibrate` again with the same situation and instruction.
-
-```
-✅ Record complete
-Same pattern accumulated 2 times
-
-💡 You can promote this to a Skill with /calibrate review.
-```
-
----
-
-### ⬆️ Step 3: Promote to Skill
-
-Run `/calibrate review`:
-
-```
-📊 Skill Promotion Candidates (2+ repetitions)
-
-[id=1] Creating React components → Always define a TypeScript interface... (2 times)
-
-Enter pattern id(s) to promote: > 1
-```
-
-Preview and save:
-```
-📝 Skill Preview: Creating React components
-...
-[Save] [Edit] [Skip]
-> Save
-
 ✅ Skill created: .claude/skills/creating-react-components/SKILL.md
+
+🔄 Restart Claude Code to activate this skill.
 ```
 
 ---
 
-### ✨ Result: Before vs After
+### ✨ Step 2: Result
 
 **Restart Claude Code**, then ask the same question:
 
@@ -546,51 +347,46 @@ const Button = ({ label, onClick }: ButtonProps) => {
 
 ## Best Practice
 
-The recommended workflow for effective calibration:
+The recommended workflow:
 
 ```
 1. Work with Claude as usual
        ↓
-2. Notice a mismatch? Run /calibrate immediately
+2. Notice a mismatch? Run /skillfy immediately
        ↓
 3. Be specific: "When creating React components" > "When coding"
        ↓
 4. Write clear instructions: "Always use TypeScript interfaces"
        ↓
-5. Let patterns accumulate naturally (2+ times)
-       ↓
-6. Review with /calibrate review weekly
-       ↓
-7. Restart Claude Code to activate new Skills
+5. Restart Claude Code to activate new Skills
 ```
 
 **Tips:**
 - 📝 Record mismatches **right when they happen** - context matters
 - 🎯 Be **specific** about the situation - vague patterns don't help
 - ✍️ Write **imperative instructions** - "Always do X" or "Never do Y"
-- 🔄 **Check `/calibrate status`** regularly to see accumulated patterns
-- 🚀 After promoting Skills, **restart Claude Code** to load them
+- 🚀 After creating Skills, **restart Claude Code** to load them
 
 ## How It Works
 
-1. **Record**: Log situations where Claude's output didn't match expectations with `/calibrate`
-2. **Aggregate**: Pattern count automatically increases when the same situation repeats
-3. **Detect**: View patterns repeated 2+ times with `/calibrate review`
-4. **Promote**: Once promoted to a Skill, Claude automatically applies it in similar situations
+1. **Record**: Log situations where Claude's output didn't match expectations with `/skillfy`
+2. **Save or Promote**: Either save as memo for later or create Skill immediately
+3. **Review**: Use `/skillfy review` to promote saved patterns to Skills
+4. **Apply**: Once promoted to a Skill, Claude automatically applies it in similar situations
 
 ## Data Storage
 
 | File | Purpose |
 |------|---------|
-| `.claude/calibrator/patterns.db` | SQLite DB (`observations`, `patterns`, `schema_version` tables) |
+| `.claude/skillfy/patterns.db` | SQLite DB (`patterns`, `schema_version` tables) |
 | `.claude/skills/*/SKILL.md` | Promoted Skills |
 
 ## Security Considerations
 
 ### Data Privacy
 - **patterns.db may contain sensitive data**: The database stores situations and expectations you record. Be mindful of what information you include.
-- **Automatic .gitignore**: The init command automatically adds `.claude/calibrator/` to `.gitignore` to prevent accidental commits.
-- **Backup exclusions**: Consider excluding `.claude/calibrator/` from cloud sync services if it contains sensitive information.
+- **Automatic .gitignore**: The init command automatically adds `.claude/skillfy/` to `.gitignore` to prevent accidental commits.
+- **Backup exclusions**: Consider excluding `.claude/skillfy/` from cloud sync services if it contains sensitive information.
 
 ### File Permissions
 - Ensure `.claude/` directory is not world-readable if it contains sensitive patterns
@@ -599,7 +395,6 @@ The recommended workflow for effective calibration:
 ### Input Validation
 - SQL injection is prevented through quote escaping
 - Path traversal is prevented in skill name generation
-- Config validation warns about malformed configuration
 
 ## Troubleshooting
 
@@ -610,8 +405,9 @@ The recommended workflow for effective calibration:
 - Windows: Install from https://sqlite.org/download.html
 
 **Skills not being applied**
-- Ensure the skill was properly promoted (check `/calibrate status`)
+- Ensure the skill was properly created (check `/skillfy help` for status)
 - Verify the skill file exists in `.claude/skills/`
+- **Restart Claude Code** to load new skills
 
 ## Requirements
 

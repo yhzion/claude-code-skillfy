@@ -1,12 +1,12 @@
 ---
-name: calibrate help
+name: skillfy help
 description: Show available commands and usage guide
 allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(echo:*)
 ---
 
-# /calibrate help
+# /skillfy help
 
-Show available Calibrator commands and current status.
+Show available Skillfy commands and current status.
 
 ## Pre-execution Setup
 
@@ -20,7 +20,7 @@ export LC_ALL=C.UTF-8 2>/dev/null || export LC_ALL=en_US.UTF-8 2>/dev/null || tr
 
 # Get project root (Git root or current directory as fallback)
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-DB_PATH="$PROJECT_ROOT/.claude/calibrator/patterns.db"
+DB_PATH="$PROJECT_ROOT/.claude/skillfy/patterns.db"
 
 if ! command -v sqlite3 &> /dev/null; then
   echo "❌ Error: sqlite3 is required but not installed."
@@ -45,16 +45,16 @@ fi
 If `INITIALIZED=false`, display:
 
 ```text
-📚 Calibrator Help
+📚 Skillfy Help
 
 Status: ⚠️ Not initialized
 
 Commands:
-  /calibrate init      Initialize Calibrator
-  /calibrate help      Show this help
+  /skillfy init      Initialize Skillfy
+  /skillfy help      Show this help
 
 Quick Start:
-  Run /calibrate init to get started.
+  Run /skillfy init to get started.
 ```
 
 Exit after displaying this message.
@@ -82,26 +82,22 @@ PENDING=$(run_query "SELECT COUNT(*) FROM patterns WHERE count >= 2 AND promoted
 ### Step 3: Display Full Help
 
 ```text
-📚 Calibrator Help
+📚 Skillfy Help
 
 Status: ✅ Initialized | Patterns: {TOTAL_PATTERNS} | Skills: {PROMOTED} | Pending: {PENDING}
 
 Commands:
-  /calibrate init      Initialize Calibrator
-  /calibrate           Record an expectation mismatch
-  /calibrate status    View statistics
-  /calibrate review    Promote patterns to Skills
-  /calibrate refactor-skills  Edit Skills and merge patterns
-  /calibrate delete    Delete promoted Skills
-  /calibrate reset     Delete all data
-  /calibrate help      Show this help
+  /skillfy init      Initialize Skillfy
+  /skillfy           Record an expectation mismatch
+  /skillfy review    Promote patterns to Skills
+  /skillfy reset     Delete all data
+  /skillfy help      Show this help
 
 Quick Start:
-  1. /calibrate init → 2. /calibrate → 3. /calibrate review
+  1. /skillfy init → 2. /skillfy → 3. /skillfy review
 
-💡 When Claude's output differs from your expectations, use /calibrate
-   to record the mismatch. After 2+ repetitions, promote it to a Skill
-   with /calibrate review.
+💡 When Claude's output differs from your expectations, use /skillfy
+   to record the mismatch. Then promote it to a Skill with /skillfy review.
 ```
 
 ## Notes

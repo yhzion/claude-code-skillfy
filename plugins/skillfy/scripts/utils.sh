@@ -1,6 +1,36 @@
 #!/bin/bash
-# Calibrator Shared Utilities
-# Source this file in command scripts: source "${CLAUDE_PLUGIN_ROOT:-$PROJECT_ROOT/plugins/calibrator}/scripts/utils.sh"
+# Skillfy Shared Utilities
+# Source this file in command scripts: source "${CLAUDE_PLUGIN_ROOT:-$PROJECT_ROOT/plugins/skillfy}/scripts/utils.sh"
+
+# ============================================================================
+# Logging Functions (stderr for debug/info/error, stdout for results)
+# ============================================================================
+
+# Error message (stderr) - for fatal errors
+log_error() {
+  echo "❌ Error: $*" >&2
+}
+
+# Warning message (stderr) - for non-fatal issues
+log_warn() {
+  echo "⚠️ Warning: $*" >&2
+}
+
+# Info message (stderr) - for progress/status updates
+log_info() {
+  echo "$*" >&2
+}
+
+# Debug message (stderr) - for detailed debugging
+log_debug() {
+  [[ "${SKILLFY_DEBUG:-0}" == "1" ]] && echo "[DEBUG] $*" >&2
+  return 0
+}
+
+# Result output (stdout) - for machine-readable results that agents consume
+output() {
+  echo "$*"
+}
 
 # ============================================================================
 # Version Comparison
@@ -47,7 +77,7 @@ version_ge() {
 # Usage: check_sqlite_version || exit 1
 check_sqlite_version() {
   if ! command -v sqlite3 &> /dev/null; then
-    echo "❌ Error: sqlite3 is required but not installed."
+    log_error "sqlite3 is required but not installed."
     return 1
   fi
 
@@ -55,7 +85,7 @@ check_sqlite_version() {
   sqlite_version=$(sqlite3 --version 2>/dev/null | awk '{print $1}')
 
   if ! version_ge "$sqlite_version" "$min_version"; then
-    echo "❌ Error: SQLite $min_version or higher required. Found: ${sqlite_version:-unknown}"
+    log_error "SQLite $min_version or higher required. Found: ${sqlite_version:-unknown}"
     return 1
   fi
 
@@ -91,7 +121,7 @@ ensure_schema_version() {
 
   # Migrate from 1.0 to 1.1
   if [ "$current_version" = "1.0" ]; then
-    echo "🔄 Migrating database schema from v1.0 to v1.1..."
+    log_info "🔄 Migrating database schema from v1.0 to v1.1..."
 
     # Add dismissed column if it doesn't exist
     # SQLite doesn't have IF NOT EXISTS for ADD COLUMN, so we check first
@@ -100,7 +130,7 @@ ensure_schema_version() {
 
     if [ "$has_dismissed" = "0" ]; then
       if ! sqlite3 "$db_path" "ALTER TABLE patterns ADD COLUMN dismissed INTEGER NOT NULL DEFAULT 0 CHECK(dismissed IN (0, 1));"; then
-        echo "❌ Error: Failed to add dismissed column"
+        log_error "Failed to add dismissed column"
         return 1
       fi
 
@@ -111,7 +141,7 @@ ensure_schema_version() {
     # Update schema version
     sqlite3 "$db_path" "INSERT OR REPLACE INTO schema_version (version) VALUES ('1.1');" 2>/dev/null || true
 
-    echo "✅ Database migrated to schema v1.1"
+    log_info "✅ Database migrated to schema v1.1"
   fi
 
   return 0
@@ -220,10 +250,10 @@ generate_skill_name() {
 # Common Setup
 # ============================================================================
 
-# Standard setup for all calibrator commands
+# Standard setup for all skillfy commands
 # Sets: PROJECT_ROOT, DB_PATH, SKILL_OUTPUT_PATH, THRESHOLD
-# Usage: calibrator_setup || exit 1
-calibrator_setup() {
+# Usage: skillfy_setup || exit 1
+skillfy_setup() {
   # Bash strict mode
   set -euo pipefail
   IFS=$'\n\t'
@@ -233,11 +263,11 @@ calibrator_setup() {
 
   # Get project root (Git root or current directory as fallback)
   PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-  DB_PATH="$PROJECT_ROOT/.claude/calibrator/patterns.db"
+  DB_PATH="$PROJECT_ROOT/.claude/skillfy/patterns.db"
   SKILL_OUTPUT_PATH="$PROJECT_ROOT/.claude/skills"
 
   # Configurable threshold (default: 2)
-  THRESHOLD="${CALIBRATOR_THRESHOLD:-2}"
+  THRESHOLD="${SKILLFY_THRESHOLD:-2}"
 
   # Export for use in calling script
   export PROJECT_ROOT DB_PATH SKILL_OUTPUT_PATH THRESHOLD

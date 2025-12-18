@@ -15,13 +15,13 @@ Thumbs.db
 *~
 
 # Claude Code runtime data (user-specific)
-.claude/calibrator/
+.claude/skillfy/
 .claude/skills/learned/
 
 # SQLite journal files
-.claude/calibrator/*.db-journal
-.claude/calibrator/*.db-wal
-.claude/calibrator/*.db-shm
+.claude/skillfy/*.db-journal
+.claude/skillfy/*.db-wal
+.claude/skillfy/*.db-shm
 
 # Logs
 *.log

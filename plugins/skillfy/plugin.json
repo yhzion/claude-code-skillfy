@@ -1,0 +1,15 @@
+{
+  "name": "skillfy",
+  "version": "1.0.0",
+  "description": "Claude Code skill builder - Turn your corrections into reusable Skills",
+  "commands": [
+    "./commands/skillfy.md",
+    "./commands/skillfy-init.md",
+    "./commands/skillfy-review.md",
+    "./commands/skillfy-reset.md",
+    "./commands/skillfy-help.md"
+  ],
+  "skills": [],
+  "hooks": {},
+  "mcpServers": {}
+}
