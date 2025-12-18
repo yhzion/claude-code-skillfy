@@ -50,7 +50,7 @@ if ! version_ge "$SQLITE_VERSION" "$MIN_SQLITE_VERSION"; then
 fi
 
 if [ ! -f "$DB_PATH" ]; then
-  echo "Skillfy is not initialized. Run /skillfy-init first."
+  echo "Skillfy is not initialized. Run /skillfy init first."
   exit 1
 fi
 
@@ -58,14 +58,21 @@ fi
 # Path Validation
 # ============================================================================
 
+# POSIX-compatible path resolution (macOS/Linux)
+resolve_path() {
+  local p="$1"
+  # Try GNU realpath, then Python fallback for macOS compatibility
+  realpath -m "$p" 2>/dev/null || python3 -c "import os; print(os.path.abspath('$p'))" 2>/dev/null || echo ""
+}
+
 # Path traversal protection: validate that a path is under allowed directory
 validate_skill_path() {
   local path="$1"
   local resolved_path resolved_base
 
   # Resolve to absolute path and check it's under SKILL_OUTPUT_PATH
-  resolved_path=$(realpath -m "$path" 2>/dev/null || echo "")
-  resolved_base=$(realpath -m "$SKILL_OUTPUT_PATH" 2>/dev/null || echo "")
+  resolved_path=$(resolve_path "$path")
+  resolved_base=$(resolve_path "$SKILL_OUTPUT_PATH")
 
   if [ -z "$resolved_path" ] || [ -z "$resolved_base" ]; then
     return 1
@@ -239,7 +246,7 @@ cat > "$SKILL_DIR/SKILL.md" << SKILL_EOF
 ---
 name: $SKILL_NAME
 description: $INSTRUCTION. Auto-applied in $SITUATION situations.
-learned_from: skillfy ($CURRENT_DATE)
+learned_from: skillfy ($CREATED_AT)
 ---
 
 ## Rules

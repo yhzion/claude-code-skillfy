@@ -5,7 +5,7 @@ arguments:
   - name: mode
     description: "Reset mode: default (data only) or --all (data + skills + DB file)"
     required: false
-allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(echo:*), Bash(rm:*), Bash(rmdir:*), Bash(ls:*)
+allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(echo:*), Bash(rm:*), Bash(rmdir:*), Bash(ls:*), Bash(wc:*), Bash(tr:*)
 ---
 
 # /skillfy reset [--all]

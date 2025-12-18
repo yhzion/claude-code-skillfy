@@ -1,7 +1,7 @@
 ---
 name: skillfy
 description: Record LLM expectation mismatches. Guide to initialize if not initialized.
-allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(sed:*), Bash(printf:*), Bash(echo:*), AskUserQuestion
+allowed-tools: Bash(git:*), Bash(sqlite3:*), Bash(test:*), Bash(sed:*), Bash(printf:*), Bash(echo:*), Bash(tr:*), Bash(cut:*), AskUserQuestion
 ---
 
 # /skillfy
@@ -52,7 +52,7 @@ if ! version_ge "$SQLITE_VERSION" "$MIN_SQLITE_VERSION"; then
 fi
 
 if [ ! -f "$DB_PATH" ]; then
-  echo "Skillfy is not initialized. Run /skillfy-init first."
+  echo "Skillfy is not initialized. Run /skillfy init first."
   exit 1
 fi
 ```
@@ -240,7 +240,6 @@ escape_sql() {
 
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SKILL_OUTPUT_PATH="$PROJECT_ROOT/.claude/skills"
-TEMPLATE_PATH="${CLAUDE_PLUGIN_ROOT:-$PROJECT_ROOT/plugins/skillfy}/templates/skill-template.md"
 
 # Generate skill name from situation (kebab-case)
 SKILL_NAME=$(printf '%s' "$SITUATION" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g')
