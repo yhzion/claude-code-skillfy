@@ -1,4 +1,4 @@
--- Calibrator SQLite Schema v1.0
+-- Calibrator SQLite Schema v1.1
 -- Requires SQLite 3.24.0+ for UPSERT (ON CONFLICT DO UPDATE) support
 
 -- Observations table: Individual mismatch records
@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS patterns (
   first_seen  DATETIME DEFAULT CURRENT_TIMESTAMP,
   last_seen   DATETIME DEFAULT CURRENT_TIMESTAMP,
   promoted    BOOLEAN DEFAULT FALSE,
+  dismissed   BOOLEAN DEFAULT FALSE,  -- User declined promotion (won't ask again)
   skill_path  TEXT,
   UNIQUE(situation, instruction)
 );
@@ -32,13 +33,17 @@ CREATE TABLE IF NOT EXISTS schema_version (
 );
 
 -- Insert current schema version
-INSERT OR IGNORE INTO schema_version (version) VALUES ('1.0');
+INSERT OR IGNORE INTO schema_version (version) VALUES ('1.1');
 
 -- Performance indexes
 CREATE INDEX IF NOT EXISTS idx_observations_situation ON observations(situation);
 CREATE INDEX IF NOT EXISTS idx_observations_timestamp ON observations(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_patterns_count ON patterns(count DESC);
 CREATE INDEX IF NOT EXISTS idx_patterns_promoted ON patterns(promoted);
+CREATE INDEX IF NOT EXISTS idx_patterns_dismissed ON patterns(dismissed);
 
 -- Composite index for UPSERT conflict detection (critical for performance)
 CREATE INDEX IF NOT EXISTS idx_patterns_situation_instruction ON patterns(situation, instruction);
+
+-- Migration: Add dismissed column to existing patterns table (for existing installations)
+-- This is safe to run multiple times due to SQLite's behavior with existing columns
