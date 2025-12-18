@@ -158,8 +158,7 @@ fi
 **Complete deletion (--all mode, option 1):**
 ```bash
 # Remove generated skills
-rm -f "$PROJECT_ROOT/.claude/skills/calibrator-"*.md 2>/dev/null || true
-rm -rf "$PROJECT_ROOT/.claude/skills/calibrator-"*/ 2>/dev/null || true
+rm -rf "$PROJECT_ROOT/.claude/skills/calibrator-"* 2>/dev/null || true
 
 # Remove database file
 rm -f "$DB_PATH"
