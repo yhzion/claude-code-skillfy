@@ -1,5 +1,5 @@
 #!/bin/bash
-# Calibrator Skill Creation Script
+# Skillfy Skill Creation Script
 # Creates a skill from a pattern and updates the database
 #
 # Usage: create-skill.sh <pattern_id> <situation> <instruction> <count>
@@ -22,7 +22,7 @@ if [ -f "$SCRIPT_DIR/utils.sh" ]; then
   # shellcheck source=utils.sh
   source "$SCRIPT_DIR/utils.sh"
 else
-  echo "❌ Error: utils.sh not found in $SCRIPT_DIR"
+  echo "❌ Error: utils.sh not found in $SCRIPT_DIR" >&2
   exit 1
 fi
 
@@ -31,13 +31,13 @@ fi
 # ============================================================================
 
 if [ $# -lt 4 ]; then
-  echo "Usage: create-skill.sh <pattern_id> <situation> <instruction> <count>"
-  echo ""
-  echo "Arguments:"
-  echo "  pattern_id   - Database ID of the pattern"
-  echo "  situation    - Error situation description"
-  echo "  instruction  - Fix instruction"
-  echo "  count        - Number of occurrences"
+  echo "Usage: create-skill.sh <pattern_id> <situation> <instruction> <count>" >&2
+  echo "" >&2
+  echo "Arguments:" >&2
+  echo "  pattern_id   - Database ID of the pattern" >&2
+  echo "  situation    - Error situation description" >&2
+  echo "  instruction  - Fix instruction" >&2
+  echo "  count        - Number of occurrences" >&2
   exit 1
 fi
 
@@ -52,25 +52,25 @@ COUNT="$4"
 
 # Validate pattern_id is numeric
 if ! [[ "$PATTERN_ID" =~ ^[0-9]+$ ]]; then
-  echo "❌ Error: Invalid pattern id '$PATTERN_ID'"
+  log_error "Invalid pattern id '$PATTERN_ID'"
   exit 1
 fi
 
 # Setup project paths
 PROJECT_ROOT="${PROJECT_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
-DB_PATH="$PROJECT_ROOT/.claude/calibrator/patterns.db"
+DB_PATH="$PROJECT_ROOT/.claude/skillfy/patterns.db"
 SKILL_OUTPUT_PATH="$PROJECT_ROOT/.claude/skills"
-TEMPLATE_PATH="${CLAUDE_PLUGIN_ROOT:-$PROJECT_ROOT/plugins/calibrator}/templates/skill-template.md"
+TEMPLATE_PATH="${CLAUDE_PLUGIN_ROOT:-$PROJECT_ROOT/plugins/skillfy}/templates/skill-template.md"
 
 # Check database exists
 if [ ! -f "$DB_PATH" ]; then
-  echo "❌ Error: Database not found at $DB_PATH"
+  log_error "Database not found at $DB_PATH"
   exit 1
 fi
 
 # Check template exists
 if [ ! -f "$TEMPLATE_PATH" ]; then
-  echo "❌ Error: Template file not found at $TEMPLATE_PATH"
+  log_error "Template file not found at $TEMPLATE_PATH"
   exit 1
 fi
 
@@ -86,7 +86,7 @@ ROW=$(sqlite3 -separator $'\t' "$DB_PATH" \
   2>/dev/null) || ROW=""
 
 if [ -z "$ROW" ]; then
-  echo "❌ Error: Pattern not found (id=$PATTERN_ID)"
+  log_error "Pattern not found (id=$PATTERN_ID)"
   exit 1
 fi
 
@@ -103,7 +103,7 @@ mkdir -p "$SKILL_OUTPUT_PATH"
 SKILL_NAME=$(generate_skill_name "$SITUATION")
 
 # Configurable max attempts (environment variable or default)
-MAX_SKILL_NAME_ATTEMPTS="${CALIBRATOR_MAX_NAME_ATTEMPTS:-100}"
+MAX_SKILL_NAME_ATTEMPTS="${SKILLFY_MAX_NAME_ATTEMPTS:-100}"
 
 # Handle skill name collisions atomically using mkdir
 BASE_SKILL_NAME="$SKILL_NAME"
@@ -120,7 +120,7 @@ while [ $SUFFIX -le $MAX_SKILL_NAME_ATTEMPTS ]; do
   # Validate CURRENT path right before creation (prevents TOCTOU race condition)
   CURRENT_PATH="$SKILL_OUTPUT_PATH/$CURRENT_NAME"
   if ! validate_path_under "$CURRENT_PATH" "$SKILL_OUTPUT_PATH"; then
-    echo "❌ Error: Invalid skill path detected (potential path traversal)"
+    log_error "Invalid skill path detected (potential path traversal)"
     exit 1
   fi
 
@@ -134,7 +134,7 @@ while [ $SUFFIX -le $MAX_SKILL_NAME_ATTEMPTS ]; do
 done
 
 if [ -z "$SKILL_DIR" ]; then
-  echo "❌ Error: Failed to generate unique skill name after $MAX_SKILL_NAME_ATTEMPTS attempts"
+  log_error "Failed to generate unique skill name after $MAX_SKILL_NAME_ATTEMPTS attempts"
   exit 1
 fi
 
@@ -156,7 +156,7 @@ if ! sed -e "s|{{SKILL_NAME}}|$SAFE_SKILL_NAME|g" \
     -e "s|{{LAST_SEEN}}|$LAST_SEEN|g" \
     "$TEMPLATE_PATH" > "$SKILL_DIR/SKILL.md"; then
   rm -rf "$SKILL_DIR"
-  echo "❌ Error: Failed to generate skill file"
+  log_error "Failed to generate skill file"
   exit 1
 fi
 
@@ -169,12 +169,12 @@ SAFE_SKILL_PATH=$(escape_sql "$SKILL_DIR")
 
 # Update database: mark as promoted, reset dismissed flag
 if ! sqlite3 "$DB_PATH" "UPDATE patterns SET promoted = 1, dismissed = 0, skill_path = '$SAFE_SKILL_PATH' WHERE id = $PATTERN_ID;"; then
-  echo "⚠️ Warning: Skill file created but database update failed"
-  echo "   Skill path: $SKILL_DIR/SKILL.md"
+  log_warn "Skill file created but database update failed"
+  log_info "   Skill path: $SKILL_DIR/SKILL.md"
 fi
 
 # ============================================================================
-# Output Result
+# Output Result (stdout - for agent consumption)
 # ============================================================================
 
-echo "SKILL_CREATED: $SKILL_DIR/SKILL.md"
+output "SKILL_CREATED: $SKILL_DIR/SKILL.md"
