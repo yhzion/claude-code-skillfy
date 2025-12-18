@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS patterns (
   count       INTEGER DEFAULT 1 CHECK(count >= 1),
   first_seen  DATETIME DEFAULT CURRENT_TIMESTAMP,
   last_seen   DATETIME DEFAULT CURRENT_TIMESTAMP,
-  promoted    BOOLEAN DEFAULT FALSE,
+  promoted    INTEGER NOT NULL DEFAULT 0 CHECK(promoted IN (0, 1)),
   skill_path  TEXT,
   UNIQUE(situation, instruction)
 );
